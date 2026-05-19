@@ -57,9 +57,9 @@ function EasingsSection() {
         </tbody>
       </table>
       <CodeBlock lang="lua" filename="usage.lua" source={`startTween('flourish', 'logo',
-    { angle: 360, alpha: 0.5 },
+    { angle = 360, alpha = 0.5 },
     2.0,
-    { ease: '${hover || "elasticOut"}' })`} />
+    { ease = '${hover || "elasticOut"}' })`} />
     </div>
   );
 }

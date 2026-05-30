@@ -17,12 +17,152 @@ const EASINGS = [
   ["circIn", "circOut", "circInOut"],
 ];
 
+/* Easing math — mirrors flixel's FlxEase (Penner equations) so previews match in-game. */
+const EASE = (() => {
+  const PI = Math.PI;
+  const c1 = 1.70158, c2 = c1 * 1.525, c3 = c1 + 1, c4 = (2 * PI) / 3, c5 = (2 * PI) / 4.5;
+  const bo = (t) => {
+    const n = 7.5625, d = 2.75;
+    if (t < 1 / d) return n * t * t;
+    if (t < 2 / d) return n * (t -= 1.5 / d) * t + 0.75;
+    if (t < 2.5 / d) return n * (t -= 2.25 / d) * t + 0.9375;
+    return n * (t -= 2.625 / d) * t + 0.984375;
+  };
+  return {
+    linear: (t) => t,
+    sineIn: (t) => 1 - Math.cos((t * PI) / 2),
+    sineOut: (t) => Math.sin((t * PI) / 2),
+    sineInOut: (t) => -(Math.cos(PI * t) - 1) / 2,
+    quadIn: (t) => t * t,
+    quadOut: (t) => 1 - (1 - t) * (1 - t),
+    quadInOut: (t) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2),
+    cubeIn: (t) => t * t * t,
+    cubeOut: (t) => 1 - Math.pow(1 - t, 3),
+    cubeInOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+    quartIn: (t) => t * t * t * t,
+    quartOut: (t) => 1 - Math.pow(1 - t, 4),
+    quartInOut: (t) => (t < 0.5 ? 8 * t * t * t * t : 1 - Math.pow(-2 * t + 2, 4) / 2),
+    quintIn: (t) => t * t * t * t * t,
+    quintOut: (t) => 1 - Math.pow(1 - t, 5),
+    quintInOut: (t) => (t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2),
+    expoIn: (t) => (t === 0 ? 0 : Math.pow(2, 10 * t - 10)),
+    expoOut: (t) => (t === 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+    expoInOut: (t) => (t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? Math.pow(2, 20 * t - 10) / 2 : (2 - Math.pow(2, -20 * t + 10)) / 2),
+    backIn: (t) => c3 * t * t * t - c1 * t * t,
+    backOut: (t) => 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2),
+    backInOut: (t) => (t < 0.5 ? (Math.pow(2 * t, 2) * ((c2 + 1) * 2 * t - c2)) / 2 : (Math.pow(2 * t - 2, 2) * ((c2 + 1) * (t * 2 - 2) + c2) + 2) / 2),
+    elasticIn: (t) => (t === 0 ? 0 : t === 1 ? 1 : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * c4)),
+    elasticOut: (t) => (t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1),
+    elasticInOut: (t) => (t === 0 ? 0 : t === 1 ? 1 : t < 0.5 ? -(Math.pow(2, 20 * t - 10) * Math.sin((20 * t - 11.125) * c5)) / 2 : (Math.pow(2, -20 * t + 10) * Math.sin((20 * t - 11.125) * c5)) / 2 + 1),
+    bounceIn: (t) => 1 - bo(1 - t),
+    bounceOut: bo,
+    bounceInOut: (t) => (t < 0.5 ? (1 - bo(1 - 2 * t)) / 2 : (1 + bo(2 * t - 1)) / 2),
+    circIn: (t) => 1 - Math.sqrt(1 - t * t),
+    circOut: (t) => Math.sqrt(1 - (t - 1) * (t - 1)),
+    circInOut: (t) => (t < 0.5 ? (1 - Math.sqrt(1 - Math.pow(2 * t, 2))) / 2 : (Math.sqrt(1 - Math.pow(-2 * t + 2, 2)) + 1) / 2),
+  };
+})();
+
+/* Animated curve + motion preview for a single easing. */
+function EasingPreview({ name, compact }) {
+  const fn = EASE[name] || EASE.linear;
+  const W = 280, H = 220, X0 = 36, X1 = 262, Y0 = 180, Y1 = 40; // Y0 = value 0, Y1 = value 1
+  const tx = (t) => X0 + t * (X1 - X0);
+  const vy = (v) => Y0 - v * (Y0 - Y1);
+  // static curve path for the current easing
+  let d = "";
+  const N = 96;
+  for (let i = 0; i <= N; i++) {
+    const t = i / N;
+    d += (i ? " L" : "M") + tx(t).toFixed(1) + " " + vy(fn(t)).toFixed(1);
+  }
+  // compress motion track to [-0.3, 1.3] so overshoot stays visible
+  const puckPos = (v) => ((v + 0.3) / 1.6) * 100;
+
+  const dot = useRef(null), gx = useRef(null), gy = useRef(null), puck = useRef(null);
+  useEffect(() => {
+    let raf, start = null;
+    const RUN = 1500, HOLD = 450, TOTAL = RUN + HOLD;
+    const tick = (now) => {
+      if (start == null) start = now;
+      let t = ((now - start) % TOTAL) / RUN;
+      if (t > 1) t = 1;
+      const v = fn(t), x = tx(t), y = vy(v);
+      if (dot.current) { dot.current.setAttribute("cx", x); dot.current.setAttribute("cy", y); }
+      if (gx.current) { gx.current.setAttribute("x2", x); gx.current.setAttribute("y1", y); gx.current.setAttribute("y2", y); }
+      if (gy.current) { gy.current.setAttribute("x1", x); gy.current.setAttribute("x2", x); gy.current.setAttribute("y1", y); }
+      if (puck.current) puck.current.style.left = puckPos(v) + "%";
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [name]);
+
+  return (
+    <React.Fragment>
+      <svg className="ease-graph" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${name} easing curve`}>
+        <line className="ease-grid" x1={X0} y1={Y1} x2={X1} y2={Y1} />
+        <line className="ease-axis" x1={X0} y1={Y1 - 18} x2={X0} y2={Y0 + 18} />
+        <line className="ease-axis" x1={X0} y1={Y0} x2={X1} y2={Y0} />
+        <text className="ease-tick" x={X0 - 9} y={Y0 + 4} textAnchor="end">0</text>
+        <text className="ease-tick" x={X0 - 9} y={Y1 + 4} textAnchor="end">1</text>
+        <text className="ease-tick" x={X0} y={Y0 + 30} textAnchor="middle">t=0</text>
+        <text className="ease-tick" x={X1} y={Y0 + 30} textAnchor="middle">t=1</text>
+        <line className="ease-linear" x1={X0} y1={Y0} x2={X1} y2={Y1} />
+        <line ref={gy} className="ease-guide" x1={X0} y1={Y0} x2={X0} y2={Y0} />
+        <line ref={gx} className="ease-guide" x1={X0} y1={Y0} x2={X0} y2={Y0} />
+        <path className="ease-curve" d={d} />
+        <circle ref={dot} className="ease-dot" cx={X0} cy={Y0} r="4.5" />
+      </svg>
+      {compact ? (
+        <div className="ease-active">{name}</div>
+      ) : (
+        <div className="ease-demo">
+          <div className="ease-active">{name}</div>
+          <div className="ease-demo-cap">value 0 → 1 over time</div>
+          <div className="ease-track">
+            <span className="ease-tick-mark" style={{ left: puckPos(0) + "%" }}></span>
+            <span className="ease-tick-mark" style={{ left: puckPos(1) + "%" }}></span>
+            <div ref={puck} className="ease-puck" style={{ left: puckPos(0) + "%" }}></div>
+          </div>
+        </div>
+      )}
+    </React.Fragment>
+  );
+}
+
 function EasingsSection() {
   const [hover, setHover] = useState(null);
+  const [selected, setSelected] = useState("elasticOut");
+  const [docked, setDocked] = useState(false);
+  const cardRef = useRef(null);
+  const active = hover || selected;
+
+  // When the inline preview scrolls up out of view, show a compact docked copy
+  // so the curve stays visible while hovering rows further down the table.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const io = new IntersectionObserver(
+      ([e]) => setDocked(!e.isIntersecting && e.boundingClientRect.top < 60),
+      { threshold: 0, rootMargin: "-56px 0px 0px 0px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   return (
     <div>
       <h2 id="list">Available easings</h2>
-      <p>Unknown names fall back to <code>linear</code>. Click an easing to preview its curve.</p>
+      <p>Hover or click an easing to preview its curve. Unknown names fall back to <code>linear</code>.</p>
+      <div className="ease-card" ref={cardRef}>
+        <EasingPreview name={active} />
+      </div>
+      {docked && (
+        <div className="ease-float" aria-hidden="true">
+          <EasingPreview name={active} compact />
+        </div>
+      )}
       <table className="tbl">
         <thead>
           <tr><th>Family</th><th>In</th><th>Out</th><th>InOut</th></tr>
@@ -40,10 +180,12 @@ function EasingsSection() {
                     <td key={idx}
                       onMouseEnter={() => setHover(name)}
                       onMouseLeave={() => setHover(null)}
+                      onClick={() => setSelected(name)}
                       style={{
-                        cursor: "default",
-                        color: hover === name ? "var(--violet-strong)" : "var(--violet)",
-                        background: hover === name ? "var(--violet-soft)" : "transparent",
+                        cursor: "pointer",
+                        color: active === name ? "var(--violet-strong)" : "var(--violet)",
+                        background: active === name ? "var(--violet-soft)" : "transparent",
+                        fontWeight: selected === name ? 700 : 400,
                         transition: "background 0.12s",
                       }}
                     >
@@ -59,7 +201,7 @@ function EasingsSection() {
       <CodeBlock lang="lua" filename="usage.lua" source={`startTween('flourish', 'logo',
     { angle = 360, alpha = 0.5 },
     2.0,
-    { ease = '${hover || "elasticOut"}' })`} />
+    { ease = '${active}' })`} />
     </div>
   );
 }

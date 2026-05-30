@@ -336,16 +336,16 @@ end` },
       },
       API({
         id: "setObjectCamera",
-        signature: "setObjectCamera(obj, camera)",
-        params: [["obj","String","Sprite tag"],["camera","String","Camera name: <code>'game'</code>, <code>'hud'</code>, <code>'other'</code>"]],
+        signature: "setObjectCamera(obj, ?camera)",
+        params: [["obj","String","Sprite tag"],["camera","String","Camera name: <code>'game'</code>, <code>'hud'</code>, <code>'other'</code>. Empty = game camera","default 'game'"]],
         returns: "Void",
         description: "Assigns the sprite to a camera. Sprites default to the game camera.",
         code: { lang: "lua", source: `setObjectCamera('score_display', 'hud')` },
       }),
       API({
         id: "setBlendMode",
-        signature: "setBlendMode(obj, blend)",
-        params: [["obj","String","Sprite tag"],["blend","String","Blend mode: <code>'add'</code>, <code>'multiply'</code>, <code>'screen'</code>, etc."]],
+        signature: "setBlendMode(obj, ?blend)",
+        params: [["obj","String","Sprite tag"],["blend","String","Blend mode: <code>'add'</code>, <code>'multiply'</code>, <code>'screen'</code>, etc. Empty resets to normal","default ''"]],
         returns: "Void",
         description: "Sets the sprite's blend mode for compositing.",
         code: { lang: "lua", source: `setBlendMode('glow_overlay', 'add')` },
@@ -418,8 +418,8 @@ setObjectOrder('player', 10) -- draw later (front)` },
       }),
       API({
         id: "getObjectOrder",
-        signature: "getObjectOrder(obj)",
-        params: [["obj","String","Sprite tag"]],
+        signature: "getObjectOrder(obj, ?group)",
+        params: [["obj","String","Sprite tag"],["group","String","Group to look the object up in instead of the state","optional"]],
         returns: "Int",
         description: "Returns the sprite's current draw order index.",
         code: { lang: "lua", source: `local order = getObjectOrder('logo')` },
@@ -603,6 +603,14 @@ addAnimationByPrefix('bf', 'singUP', 'BF notes up', 24, false)` },
         returns: "Void",
         description: "Adds an animation by frame label (for labeled atlas frames).",
         code: { lang: "lua", source: `addAnimationByFrameLabel('character', 'taunt', 'taunt_start', 12, false)` },
+      }),
+      API({
+        id: "addAnimationByFrameLabelIndices",
+        signature: "addAnimationByFrameLabelIndices(obj, name, label, indices, ?framerate, ?loop)",
+        params: [["obj","String","Sprite tag"],["name","String","Animation name"],["label","String","Frame label from the atlas"],["indices","String","Comma-separated frame indices within the label"],["framerate","Int","FPS","default 24"],["loop","Bool","Looping","default true"]],
+        returns: "Void",
+        description: "Adds an animation from specific frame indices inside a labeled atlas section (flixel animate atlases) — the index-picking variant of <code>addAnimationByFrameLabel</code>.",
+        code: { lang: "lua", source: `addAnimationByFrameLabelIndices('character', 'wave', 'wave_loop', '0,1,2,3', 24, true)` },
       }),
       {
         id: "playback",
@@ -1624,8 +1632,8 @@ print('current ms:', pos)` },
       }),
       API({
         id: "startVideo",
-        signature: "startVideo(videoFile, ?canSkip, ?forMidSong)",
-        params: [["videoFile","String","Video file path (no extension)"],["canSkip","Bool","Whether the player can skip the video","default true"],["forMidSong","Bool","Whether this is a mid-song cutscene","default false"]],
+        signature: "startVideo(videoFile, ?canSkip, ?forMidSong, ?shouldLoop, ?playOnLoad)",
+        params: [["videoFile","String","Video file path (no extension)"],["canSkip","Bool","Whether the player can skip the video","default true"],["forMidSong","Bool","Whether this is a mid-song cutscene","default false"],["shouldLoop","Bool","Loop the video playback","default false"],["playOnLoad","Bool","Start playing as soon as the video loads","default true"]],
         returns: "Void",
         description: "Plays a video cutscene. Use <code>forMidSong = true</code> for videos that play in the middle of a song.",
         code: { lang: "lua", source: `startVideo('videos/intro', true)` },
@@ -1634,21 +1642,7 @@ print('current ms:', pos)` },
         id: "playstate-score",
         title: "Score Functions",
         kind: "prose",
-        body: `<p>These functions read and modify score, misses, and hits during gameplay:</p>
-<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>getScore()</code></td><td>Returns current score</td></tr>
-    <tr><td><code>getMisses()</code></td><td>Returns current misses</td></tr>
-    <tr><td><code>getHits()</code></td><td>Returns current hits</td></tr>
-    <tr><td><code>setScore(value)</code></td><td>Sets score</td></tr>
-    <tr><td><code>setMisses(value)</code></td><td>Sets misses</td></tr>
-    <tr><td><code>setHits(value)</code></td><td>Sets hits</td></tr>
-    <tr><td><code>addScore(value)</code></td><td>Adds to score</td></tr>
-    <tr><td><code>addMisses(value)</code></td><td>Adds to misses</td></tr>
-    <tr><td><code>addHits(value)</code></td><td>Adds to hits</td></tr>
-  </tbody>
-</table>`,
+        body: `Read and modify score, misses, hits, health, and rating during gameplay with the functions on the <a href="#" data-go="se-score">Score &amp; Health</a> page.`,
       },
     ],
   },
@@ -1842,30 +1836,146 @@ end` },
     subtitle: "Read and write any property on any game object using dotted string paths.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "How reflection works",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>getProperty(variable, ?allowMaps)</code></td><td>Gets a property from current state via reflection</td></tr>
-    <tr><td><code>setProperty(variable, value, ?allowMaps)</code></td><td>Sets a property via reflection</td></tr>
-    <tr><td><code>getPropertyFromClass(classVar, variable, ?allowMaps)</code></td><td>Gets static property from a Haxe class</td></tr>
-    <tr><td><code>setPropertyFromClass(classVar, variable, value, ?allowMaps)</code></td><td>Sets static property on a Haxe class</td></tr>
-    <tr><td><code>getPropertyFromGroup(obj, index, variable, ?allowMaps)</code></td><td>Gets property from a group member</td></tr>
-    <tr><td><code>setPropertyFromGroup(obj, index, variable, value, ?allowMaps)</code></td><td>Sets property on a group member</td></tr>
-    <tr><td><code>getObjectOrder(obj)</code></td><td>Gets z-index of an object</td></tr>
-    <tr><td><code>setObjectOrder(obj, position, ?group)</code></td><td>Sets draw order</td></tr>
-    <tr><td><code>addToGroup(group, tag, ?index)</code></td><td>Adds an object to a group or array</td></tr>
-    <tr><td><code>removeFromGroup(obj, index, ?dontDestroy)</code></td><td>Removes from a group</td></tr>
-    <tr><td><code>callMethod(funcToRun, ?args)</code></td><td>Calls a method on current state</td></tr>
-    <tr><td><code>callMethodFromClass(className, funcToRun, ?args)</code></td><td>Calls a static method on a class</td></tr>
-    <tr><td><code>createInstance(variableToSave, className, ?args)</code></td><td>Creates a Haxe class instance at runtime</td></tr>
-    <tr><td><code>addInstance(objectName, ?inFront)</code></td><td>Adds a runtime-created instance to the state</td></tr>
-    <tr><td><code>instanceArg(instanceName, ?className)</code></td><td>Creates an argument reference for Haxe methods</td></tr>
-  </tbody>
-</table>`,
+        body: `Reflection lets a script read or write <em>any</em> field on the current state and its objects by name, without a dedicated function for each one. The lookup starts at the active state — usually <code>PlayState</code> during gameplay.
+
+<ul>
+  <li><strong>Dotted paths</strong> walk into nested objects: <code>'boyfriend.x'</code>, <code>'camGame.zoom'</code>, <code>'healthBar.percent'</code>.</li>
+  <li><strong><code>allowMaps</code></strong> — pass <code>true</code> when the final field is a Haxe <code>Map</code> you want to index into.</li>
+</ul>
+
+These functions use Haxe reflection and are comparatively expensive — cache results in a local instead of calling them every frame where you can.`,
       },
+      {
+        id: "props",
+        title: "Properties",
+        kind: "prose",
+        body: "Read and write fields on the current state, or static fields on any Haxe class.",
+      },
+      API({
+        id: "getProperty",
+        signature: "getProperty(variable, ?allowMaps)",
+        params: [["variable","String","Property name or dotted path (e.g. <code>'boyfriend.x'</code>)"],["allowMaps","Bool","Allow indexing into <code>Map</code> fields","default false"]],
+        returns: "Dynamic",
+        description: "Reads a property from the current state by name. Dotted paths walk into nested objects via reflection.",
+        code: { lang: "lua", source: `local x = getProperty('boyfriend.x')
+local hp = getProperty('health')` },
+      }),
+      API({
+        id: "setProperty",
+        signature: "setProperty(variable, value, ?allowMaps)",
+        params: [["variable","String","Property name or dotted path"],["value","Dynamic","New value"],["allowMaps","Bool","Allow indexing into <code>Map</code> fields","default false"]],
+        returns: "Dynamic — the value that was set",
+        description: "Writes a property on the current state by name. Dotted paths walk into nested objects.",
+        code: { lang: "lua", source: `setProperty('boyfriend.x', 770)
+setProperty('health', 2)` },
+      }),
+      API({
+        id: "getPropertyFromClass",
+        signature: "getPropertyFromClass(classVar, variable, ?allowMaps)",
+        params: [["classVar","String","Class name. <code>'ClientPrefs'</code>, <code>'Conductor'</code>, <code>'PlayState'</code>, <code>'GameOverSubstate'</code> are auto-resolved; otherwise use the full package path"],["variable","String","Static field name or dotted path"],["allowMaps","Bool","Allow <code>Map</code> indexing","default false"]],
+        returns: "Dynamic",
+        description: "Reads a static field from a Haxe class. <code>'ClientPrefs'</code> fields are read from <code>ClientPrefs.data</code> automatically.",
+        code: { lang: "lua", source: `local down = getPropertyFromClass('ClientPrefs', 'downScroll')
+local beat = getPropertyFromClass('Conductor', 'curBeat')` },
+      }),
+      API({
+        id: "setPropertyFromClass",
+        signature: "setPropertyFromClass(classVar, variable, value, ?allowMaps)",
+        params: [["classVar","String","Class name (short names auto-resolved)"],["variable","String","Static field name or dotted path"],["value","Dynamic","New value"],["allowMaps","Bool","Allow <code>Map</code> indexing","default false"]],
+        returns: "Dynamic — the value that was set",
+        description: "Writes a static field on a Haxe class.",
+        code: { lang: "lua", source: `setPropertyFromClass('GameOverSubstate', 'characterName', 'bf-dead')` },
+      }),
+      {
+        id: "groups",
+        title: "Groups & arrays",
+        kind: "prose",
+        body: "Reach into the members of a group or array — individual notes, strums, or any custom group on the state.",
+      },
+      API({
+        id: "getPropertyFromGroup",
+        signature: "getPropertyFromGroup(obj, index, variable, ?allowMaps)",
+        params: [["obj","String","Group or array name (dotted paths allowed)"],["index","Int","Member index within the group/array"],["variable","Dynamic","Field name (String) — or an Int to index a nested array"],["allowMaps","Bool","Allow <code>Map</code> indexing","default false"]],
+        returns: "Dynamic",
+        description: "Reads a property from a single member of a group or array (e.g. a note or a strum).",
+        code: { lang: "lua", source: `local x = getPropertyFromGroup('strumLineNotes', 0, 'x')` },
+      }),
+      API({
+        id: "setPropertyFromGroup",
+        signature: "setPropertyFromGroup(obj, index, variable, value, ?allowMaps)",
+        params: [["obj","String","Group or array name"],["index","Int","Member index"],["variable","Dynamic","Field name (String) or Int array index"],["value","Dynamic","New value"],["allowMaps","Bool","Allow <code>Map</code> indexing","default false"]],
+        returns: "Dynamic — the value that was set",
+        description: "Writes a property on a single member of a group or array.",
+        code: { lang: "lua", source: `setPropertyFromGroup('strumLineNotes', 0, 'x', 100)` },
+      }),
+      API({
+        id: "addToGroup",
+        signature: "addToGroup(group, tag, ?index)",
+        params: [["group","String","Target group or array field on the state. The special names <code>'comboGroup'</code>, <code>'uiGroup'</code>, <code>'noteGroup'</code> add directly to the PlayState"],["tag","String","Tag of an existing sprite/object to add"],["index","Int","Insert position; <code>-1</code> appends to the end","default -1"]],
+        returns: "Void",
+        description: "Adds an existing object into a group or array. Appends by default, or inserts at <code>index</code>.",
+        code: { lang: "lua", source: `makeLuaSprite('star', 'star', 0, 0)
+addToGroup('myGroup', 'star')` },
+      }),
+      API({
+        id: "removeFromGroup",
+        signature: "removeFromGroup(obj, index, ?dontDestroy)",
+        params: [["obj","String","Group or array name"],["index","Int","Member index to remove"],["dontDestroy","Bool","Keep the object alive after removing (don't call <code>destroy()</code>)","default false"]],
+        returns: "Void",
+        description: "Removes the member at <code>index</code> from a group or array. By default the removed object is destroyed.",
+        code: { lang: "lua", source: `removeFromGroup('notes', 0)` },
+      }),
+      {
+        id: "instances",
+        title: "Methods & runtime instances",
+        kind: "prose",
+        body: "Call methods on the state or any class, and create Haxe objects at runtime.",
+      },
+      API({
+        id: "callMethod",
+        signature: "callMethod(funcToRun, ?args)",
+        params: [["funcToRun","String","Method name or dotted path on the current state"],["args","Array","Arguments to pass. Use <code>instanceArg</code> to pass object references","optional"]],
+        returns: "Dynamic — the method's return value",
+        description: "Calls a method on the current state via reflection.",
+        code: { lang: "lua", source: `callMethod('moveCameraToOpponent')
+callMethod('boyfriend.playAnim', {'hey', true})` },
+      }),
+      API({
+        id: "callMethodFromClass",
+        signature: "callMethodFromClass(className, funcToRun, ?args)",
+        params: [["className","String","Full class path"],["funcToRun","String","Static method name or dotted path"],["args","Array","Arguments to pass","optional"]],
+        returns: "Dynamic — the method's return value",
+        description: "Calls a static method on a Haxe class via reflection.",
+        code: { lang: "lua", source: `local p = callMethodFromClass('backend.Paths', 'image', {'logo'})` },
+      }),
+      API({
+        id: "createInstance",
+        signature: "createInstance(variableToSave, className, ?args)",
+        params: [["variableToSave","String","Variable name to store the new object under (dots are stripped)"],["className","String","Full class path to instantiate"],["args","Array","Constructor arguments","optional"]],
+        returns: "Bool — <code>true</code> if created",
+        description: "Instantiates a Haxe class at runtime and stores it in script variables under <code>variableToSave</code>. Use <code>addInstance</code> to put it on screen.",
+        code: { lang: "lua", source: `createInstance('ring', 'flixel.FlxSprite', {100, 200})
+addInstance('ring')` },
+      }),
+      API({
+        id: "addInstance",
+        signature: "addInstance(objectName, ?inFront)",
+        params: [["objectName","String","Name of a variable created with <code>createInstance</code>"],["inFront","Bool","Add in front of characters instead of behind them","default false"]],
+        returns: "Void",
+        description: "Adds a runtime-created instance to the current state. In PlayState, objects are inserted behind the characters unless <code>inFront</code> is true.",
+        code: { lang: "lua", source: `addInstance('ring', true)` },
+      }),
+      API({
+        id: "instanceArg",
+        signature: "instanceArg(instanceName, ?className)",
+        params: [["instanceName","String","Variable/object name to reference"],["className","String","Class to resolve the name on instead of the state","optional"]],
+        returns: "String — a reference token understood by callMethod/createInstance",
+        description: "Wraps an existing object so it can be passed as an argument to <code>callMethod</code>, <code>callMethodFromClass</code>, or <code>createInstance</code> (which otherwise only accept primitive args).",
+        code: { lang: "lua", source: `callMethod('add', {instanceArg('mySprite')})` },
+      }),
     ],
   },
 
@@ -1876,38 +1986,153 @@ end` },
     subtitle: "Audio functions for playing and managing sounds.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Tags",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>playSound(sound, ?volume, ?tag)</code></td><td>Plays a sound effect. If tagged, fires onSoundFinished on completion</td></tr>
-    <tr><td><code>playMusic(sound, ?volume, ?loop)</code></td><td>Plays background music</td></tr>
-    <tr><td><code>stopSound(tag)</code></td><td>Stops a tagged sound</td></tr>
-    <tr><td><code>pauseSound(tag)</code></td><td>Pauses a tagged sound</td></tr>
-    <tr><td><code>resumeSound(tag)</code></td><td>Resumes a tagged sound</td></tr>
-    <tr><td><code>soundFadeIn(?tag, duration, ?fromValue, ?toValue)</code></td><td>Fades in a sound (no tag = main music)</td></tr>
-    <tr><td><code>soundFadeOut(?tag, duration, ?toValue)</code></td><td>Fades out a sound</td></tr>
-    <tr><td><code>soundFadeCancel(?tag)</code></td><td>Cancels fade on a sound</td></tr>
-    <tr><td><code>getSoundVolume(?tag)</code></td><td>Gets sound volume</td></tr>
-    <tr><td><code>setSoundVolume(?tag, value)</code></td><td>Sets sound volume</td></tr>
-    <tr><td><code>getSoundTime(tag)</code></td><td>Gets playback position in ms</td></tr>
-    <tr><td><code>setSoundTime(tag, value)</code></td><td>Seeks to position in ms</td></tr>
-    <tr><td><code>getSoundPitch(tag)</code></td><td>Gets pitch multiplier</td></tr>
-    <tr><td><code>setSoundPitch(tag, value, ?doPause)</code></td><td>Sets pitch multiplier</td></tr>
-    <tr><td><code>luaSoundExists(tag)</code></td><td>Checks if tagged sound exists</td></tr>
-  </tbody>
-</table>
-<hr>
-<pre><code class="lang-lua">-- Play a sound with a tag for management
-playSound('confirm', 0.8, 'sfx_confirm')
-
--- Later, control it:
-setSoundPitch('sfx_confirm', 1.5, true)
-soundFadeOut('sfx_confirm', 2.0)
-</code></pre>`,
+        body: `Give a sound a <strong>tag</strong> when you play it and you can stop, pause, fade, seek, or re-pitch it later by that name. A tagged sound also fires the <code>onSoundFinished(tag)</code> callback when it ends. The fade and volume functions accept an empty tag (<code>''</code>) to target the main song music instead of a tagged sound.`,
       },
+      {
+        id: "playback",
+        title: "Playback",
+        kind: "prose",
+        body: "Start and control sounds and music.",
+      },
+      API({
+        id: "playMusic",
+        signature: "playMusic(sound, ?volume, ?loop)",
+        params: [["sound","String","Music file path under <code>music/</code> (no extension)"],["volume","Float","Start volume 0–1","default 1"],["loop","Bool","Loop the track","default false"]],
+        returns: "Void",
+        description: "Replaces the current music with a track from the <code>music/</code> folder.",
+        code: { lang: "lua", source: `playMusic('breakfast', 1, true)` },
+      }),
+      API({
+        id: "playSound",
+        signature: "playSound(sound, ?volume, ?tag)",
+        params: [["sound","String","Sound file path under <code>sounds/</code> (no extension)"],["volume","Float","Volume 0–1","default 1"],["tag","String","Tag to track the sound; fires <code>onSoundFinished(tag)</code> when it ends and lets you control it later","optional"]],
+        returns: "Void",
+        description: "Plays a sound effect. Without a tag it's fire-and-forget; with a tag it can be stopped, paused, faded, or queried. Re-using a tag stops the previous sound first.",
+        code: { lang: "lua", source: `playSound('cancelMenu', 0.8)
+playSound('confirm', 1, 'sfx_confirm')` },
+      }),
+      API({
+        id: "stopSound",
+        signature: "stopSound(tag)",
+        params: [["tag","String","Tag of the sound to stop"]],
+        returns: "Void",
+        description: "Stops and frees a tagged sound.",
+        code: { lang: "lua", source: `stopSound('sfx_confirm')` },
+      }),
+      API({
+        id: "pauseSound",
+        signature: "pauseSound(tag)",
+        params: [["tag","String","Tag of the sound to pause"]],
+        returns: "Void",
+        description: "Pauses a tagged sound, keeping its position.",
+        code: { lang: "lua", source: `pauseSound('sfx_confirm')` },
+      }),
+      API({
+        id: "resumeSound",
+        signature: "resumeSound(tag)",
+        params: [["tag","String","Tag of the sound to resume"]],
+        returns: "Void",
+        description: "Resumes a paused tagged sound.",
+        code: { lang: "lua", source: `resumeSound('sfx_confirm')` },
+      }),
+      API({
+        id: "luaSoundExists",
+        signature: "luaSoundExists(tag)",
+        params: [["tag","String","Tag to check"]],
+        returns: "Bool",
+        description: "Returns <code>true</code> if a tagged sound with this name currently exists.",
+        code: { lang: "lua", source: `if luaSoundExists('sfx_confirm') then
+    stopSound('sfx_confirm')
+end` },
+      }),
+      {
+        id: "fades",
+        title: "Fades",
+        kind: "prose",
+        body: "Fade a sound's volume over time. Pass <code>''</code> as the tag to fade the song's music.",
+      },
+      API({
+        id: "soundFadeIn",
+        signature: "soundFadeIn(tag, duration, ?fromValue, ?toValue)",
+        params: [["tag","String","Tagged sound, or <code>''</code> for the main song music"],["duration","Float","Fade length in seconds"],["fromValue","Float","Starting volume","default 0"],["toValue","Float","Ending volume","default 1"]],
+        returns: "Void",
+        description: "Fades a sound's volume up over time.",
+        code: { lang: "lua", source: `soundFadeIn('', 2)              -- fade the music in
+soundFadeIn('sfx_confirm', 0.5)` },
+      }),
+      API({
+        id: "soundFadeOut",
+        signature: "soundFadeOut(tag, duration, ?toValue)",
+        params: [["tag","String","Tagged sound, or <code>''</code> for the main song music"],["duration","Float","Fade length in seconds"],["toValue","Float","Ending volume","default 0"]],
+        returns: "Void",
+        description: "Fades a sound's volume down over time.",
+        code: { lang: "lua", source: `soundFadeOut('', 1.5)` },
+      }),
+      API({
+        id: "soundFadeCancel",
+        signature: "soundFadeCancel(tag)",
+        params: [["tag","String","Tagged sound, or <code>''</code> for the main song music"]],
+        returns: "Void",
+        description: "Cancels an in-progress fade, leaving the volume where it is.",
+        code: { lang: "lua", source: `soundFadeCancel('sfx_confirm')` },
+      }),
+      {
+        id: "vtp",
+        title: "Volume, time & pitch",
+        kind: "prose",
+        body: "Read and write a sound's volume, playback position, and pitch. Time and pitch only apply to <em>tagged</em> sounds.",
+      },
+      API({
+        id: "getSoundVolume",
+        signature: "getSoundVolume(tag)",
+        params: [["tag","String","Tagged sound, or <code>''</code> for the main song music"]],
+        returns: "Float — volume 0–1",
+        description: "Returns the current volume of a sound.",
+        code: { lang: "lua", source: `local v = getSoundVolume('')` },
+      }),
+      API({
+        id: "setSoundVolume",
+        signature: "setSoundVolume(tag, value)",
+        params: [["tag","String","Tagged sound, or <code>''</code> for the main song music"],["value","Float","New volume 0–1"]],
+        returns: "Void",
+        description: "Sets the volume of a sound.",
+        code: { lang: "lua", source: `setSoundVolume('sfx_confirm', 0.5)` },
+      }),
+      API({
+        id: "getSoundTime",
+        signature: "getSoundTime(tag)",
+        params: [["tag","String","Tag of the sound"]],
+        returns: "Float — position in milliseconds (0 if not found)",
+        description: "Returns the current playback position of a tagged sound, in milliseconds.",
+        code: { lang: "lua", source: `local ms = getSoundTime('sfx_confirm')` },
+      }),
+      API({
+        id: "setSoundTime",
+        signature: "setSoundTime(tag, value)",
+        params: [["tag","String","Tag of the sound"],["value","Float","Position in milliseconds"]],
+        returns: "Void",
+        description: "Seeks a tagged sound to a position in milliseconds.",
+        code: { lang: "lua", source: `setSoundTime('sfx_confirm', 1000)` },
+      }),
+      API({
+        id: "getSoundPitch",
+        signature: "getSoundPitch(tag)",
+        params: [["tag","String","Tag of the sound"]],
+        returns: "Float — pitch multiplier (0 if not found)",
+        description: "Returns the pitch multiplier of a tagged sound.",
+        code: { lang: "lua", source: `local p = getSoundPitch('sfx_confirm')` },
+      }),
+      API({
+        id: "setSoundPitch",
+        signature: "setSoundPitch(tag, value, ?doPause)",
+        params: [["tag","String","Tag of the sound"],["value","Float","Pitch multiplier (1 = normal)"],["doPause","Bool","Briefly pause and replay so the change applies cleanly","default false"]],
+        returns: "Void",
+        description: "Sets the pitch multiplier of a tagged sound.",
+        code: { lang: "lua", source: `setSoundPitch('sfx_confirm', 1.5, true)` },
+      }),
     ],
   },
 
@@ -1918,23 +2143,58 @@ soundFadeOut('sfx_confirm', 2.0)
     subtitle: "Camera creation, effects, and control.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Camera names",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>makeLuaCamera(tag, ?ddt)</code></td><td>Creates a new camera with tag</td></tr>
-    <tr><td><code>cameraShake(camera, intensity, duration)</code></td><td>Shakes a camera</td></tr>
-    <tr><td><code>cameraFlash(camera, color, duration, forced)</code></td><td>Flashes a camera with a color</td></tr>
-    <tr><td><code>cameraFade(camera, color, duration, forced)</code></td><td>Fades a camera to a color</td></tr>
-    <tr><td><code>setObjectCamera(obj, camera)</code></td><td>Assigns object to a camera</td></tr>
-    <tr><td><code>getMouseX(camera)</code></td><td>Gets mouse X in camera space</td></tr>
-    <tr><td><code>getMouseY(camera)</code></td><td>Gets mouse Y in camera space</td></tr>
-    <tr><td><code>cameraSetTarget(target)</code></td><td>Sets camera follow target ('boyfriend', 'dad', 'gf')</td></tr>
-  </tbody>
-</table>`,
+        body: `Built-in cameras are <code>'game'</code> (the world), <code>'hud'</code> (the UI), and <code>'other'</code>. Create your own with <code>makeLuaCamera</code> and target it by tag. Assign a sprite to a camera with <a href="#" data-go="se-sprites">setObjectCamera</a> on the Sprite Functions page.`,
       },
+      API({
+        id: "makeLuaCamera",
+        signature: "makeLuaCamera(tag, ?ddt)",
+        params: [["tag","String","Name to store the new camera under"],["ddt","Bool","Use as a default draw target (objects added without an explicit camera render to it)","default false"]],
+        returns: "Void",
+        description: "Creates a new transparent camera and registers it under <code>tag</code>. Assign sprites to it with <code>setObjectCamera</code>.",
+        code: { lang: "lua", source: `makeLuaCamera('overlay')
+setObjectCamera('logo', 'overlay')` },
+      }),
+      API({
+        id: "cameraShake",
+        signature: "cameraShake(camera, intensity, duration)",
+        params: [["camera","String","Camera name (<code>'game'</code>, <code>'hud'</code>, <code>'other'</code>) or a custom tag"],["intensity","Float","Shake strength as a fraction of the screen (e.g. <code>0.01</code>)"],["duration","Float","Shake length in seconds"]],
+        returns: "Void",
+        description: "Shakes a camera.",
+        code: { lang: "lua", source: `cameraShake('game', 0.01, 0.3)` },
+      }),
+      API({
+        id: "cameraFlash",
+        signature: "cameraFlash(camera, color, duration, forced)",
+        params: [["camera","String","Camera name or custom tag"],["color","String","Flash color hex (<code>'RRGGBB'</code>)"],["duration","Float","Flash length in seconds"],["forced","Bool","Restart the flash even if one is already playing"]],
+        returns: "Void",
+        description: "Flashes a camera with a solid color that fades out.",
+        code: { lang: "lua", source: `cameraFlash('game', 'FFFFFF', 0.5, true)` },
+      }),
+      API({
+        id: "cameraFade",
+        signature: "cameraFade(camera, color, duration, forced)",
+        params: [["camera","String","Camera name or custom tag"],["color","String","Target color hex (<code>'RRGGBB'</code>)"],["duration","Float","Fade length in seconds"],["forced","Bool","Restart the fade even if one is already playing"]],
+        returns: "Void",
+        description: "Fades a camera to a solid color and holds it there.",
+        code: { lang: "lua", source: `cameraFade('game', '000000', 1, true)` },
+      }),
+      {
+        id: "mouse",
+        title: "Mouse position",
+        kind: "prose",
+        body: `Read the mouse position within a camera's space with <a href="#" data-go="se-input">getMouseX</a> and <a href="#" data-go="se-input">getMouseY</a>, documented on the Input Functions page.`,
+      },
+      API({
+        id: "cameraSetTarget",
+        signature: "cameraSetTarget(target)",
+        params: [["target","String","<code>'dad'</code> to follow the opponent; anything else follows the player"]],
+        returns: "Bool — <code>true</code> if now following the opponent",
+        description: "Snaps the gameplay camera to follow a character.",
+        code: { lang: "lua", source: `cameraSetTarget('dad')` },
+      }),
     ],
   },
 
@@ -1945,31 +2205,148 @@ soundFadeOut('sfx_confirm', 2.0)
     subtitle: "Score, misses, hits, health, and rating functions.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "score",
+        title: "Score, misses & hits",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>addScore(value)</code></td><td>Adds to score, recalculates rating</td></tr>
-    <tr><td><code>setScore(value)</code></td><td>Sets score directly</td></tr>
-    <tr><td><code>getScore()</code></td><td>Returns current score</td></tr>
-    <tr><td><code>addMisses(value)</code></td><td>Adds to miss count</td></tr>
-    <tr><td><code>setMisses(value)</code></td><td>Sets misses</td></tr>
-    <tr><td><code>getMisses()</code></td><td>Returns miss count</td></tr>
-    <tr><td><code>addHits(value)</code></td><td>Adds to hit count</td></tr>
-    <tr><td><code>setHits(value)</code></td><td>Sets hits</td></tr>
-    <tr><td><code>getHits()</code></td><td>Returns hit count</td></tr>
-    <tr><td><code>setHealth(value)</code></td><td>Sets health (0-2 range)</td></tr>
-    <tr><td><code>addHealth(value)</code></td><td>Adds to health</td></tr>
-    <tr><td><code>getHealth()</code></td><td>Returns current health</td></tr>
-    <tr><td><code>setRatingPercent(value)</code></td><td>Sets rating 0-1</td></tr>
-    <tr><td><code>setRatingName(value)</code></td><td>Sets rating text</td></tr>
-    <tr><td><code>setRatingFC(value)</code></td><td>Sets FC status</td></tr>
-    <tr><td><code>setHealthBarColors(left, right)</code></td><td>Sets health bar colors</td></tr>
-    <tr><td><code>setTimeBarColors(left, right)</code></td><td>Sets time bar colors</td></tr>
-  </tbody>
-</table>`,
+        body: "Each setter and adder recalculates the rating (accuracy and letter grade) afterwards. These mirror the read-only <code>score</code>, <code>misses</code>, <code>hits</code> globals.",
+      },
+      API({
+        id: "getScore",
+        signature: "getScore()",
+        params: [],
+        returns: "Int",
+        description: "Returns the current song score.",
+        code: { lang: "lua", source: `local s = getScore()` },
+      }),
+      API({
+        id: "setScore",
+        signature: "setScore(value)",
+        params: [["value","Int","New score"]],
+        returns: "Void",
+        description: "Sets the song score and recalculates the rating.",
+        code: { lang: "lua", source: `setScore(0)` },
+      }),
+      API({
+        id: "addScore",
+        signature: "addScore(value)",
+        params: [["value","Int","Amount to add (may be negative)"]],
+        returns: "Void",
+        description: "Adds to the song score and recalculates the rating.",
+        code: { lang: "lua", source: `addScore(350)` },
+      }),
+      API({
+        id: "getMisses",
+        signature: "getMisses()",
+        params: [],
+        returns: "Int",
+        description: "Returns the current miss count.",
+        code: { lang: "lua", source: `local m = getMisses()` },
+      }),
+      API({
+        id: "setMisses",
+        signature: "setMisses(value)",
+        params: [["value","Int","New miss count"]],
+        returns: "Void",
+        description: "Sets the miss count and recalculates the rating.",
+        code: { lang: "lua", source: `setMisses(0)` },
+      }),
+      API({
+        id: "addMisses",
+        signature: "addMisses(value)",
+        params: [["value","Int","Amount to add"]],
+        returns: "Void",
+        description: "Adds to the miss count and recalculates the rating.",
+        code: { lang: "lua", source: `addMisses(1)` },
+      }),
+      API({
+        id: "getHits",
+        signature: "getHits()",
+        params: [],
+        returns: "Int",
+        description: "Returns the current hit count.",
+        code: { lang: "lua", source: `local h = getHits()` },
+      }),
+      API({
+        id: "setHits",
+        signature: "setHits(value)",
+        params: [["value","Int","New hit count"]],
+        returns: "Void",
+        description: "Sets the hit count and recalculates the rating.",
+        code: { lang: "lua", source: `setHits(0)` },
+      }),
+      API({
+        id: "addHits",
+        signature: "addHits(value)",
+        params: [["value","Int","Amount to add"]],
+        returns: "Void",
+        description: "Adds to the hit count and recalculates the rating.",
+        code: { lang: "lua", source: `addHits(1)` },
+      }),
+      {
+        id: "health",
+        title: "Health",
+        kind: "prose",
+        body: "Health ranges from <code>0</code> (death) to <code>2</code> (full) by default.",
+      },
+      API({
+        id: "getHealth",
+        signature: "getHealth()",
+        params: [],
+        returns: "Float",
+        description: "Returns the current health.",
+        code: { lang: "lua", source: `local hp = getHealth()` },
+      }),
+      API({
+        id: "setHealth",
+        signature: "setHealth(value)",
+        params: [["value","Float","New health (0–2)"]],
+        returns: "Void",
+        description: "Sets the player's health directly.",
+        code: { lang: "lua", source: `setHealth(2)` },
+      }),
+      API({
+        id: "addHealth",
+        signature: "addHealth(value)",
+        params: [["value","Float","Amount to add (may be negative)"]],
+        returns: "Void",
+        description: "Adds to the player's health.",
+        code: { lang: "lua", source: `addHealth(-0.5)` },
+      }),
+      {
+        id: "rating",
+        title: "Rating",
+        kind: "prose",
+        body: "Override the rating values shown after recalculation. The read-only globals are <code>rating</code>, <code>ratingName</code>, and <code>ratingFC</code>.",
+      },
+      API({
+        id: "setRatingPercent",
+        signature: "setRatingPercent(value)",
+        params: [["value","Float","Accuracy as a fraction 0–1"]],
+        returns: "Void",
+        description: "Sets the rating percentage (accuracy).",
+        code: { lang: "lua", source: `setRatingPercent(1)` },
+      }),
+      API({
+        id: "setRatingName",
+        signature: "setRatingName(value)",
+        params: [["value","String","Rating label (e.g. <code>'Sick!'</code>, <code>'Good'</code>)"]],
+        returns: "Void",
+        description: "Sets the rating name text.",
+        code: { lang: "lua", source: `setRatingName('Perfect!!')` },
+      }),
+      API({
+        id: "setRatingFC",
+        signature: "setRatingFC(value)",
+        params: [["value","String","Full-combo label (e.g. <code>'FC'</code>, <code>'SDCB'</code>)"]],
+        returns: "Void",
+        description: "Sets the full-combo indicator text.",
+        code: { lang: "lua", source: `setRatingFC('FC')` },
+      }),
+      {
+        id: "bars",
+        title: "Bar colors",
+        kind: "prose",
+        body: `Recolor the health and time bars with <a href="#" data-go="se-playstate">setHealthBarColors</a> and <a href="#" data-go="se-playstate">setTimeBarColors</a>, documented on the PlayState Functions page.`,
       },
     ],
   },
@@ -1981,21 +2358,51 @@ soundFadeOut('sfx_confirm', 2.0)
     subtitle: "Control character groups, positions, and animations.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Selecting a character",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>characterDance(character)</code></td><td>Plays idle animation on 'boyfriend', 'dad', or 'gf'</td></tr>
-    <tr><td><code>getCharacterX(type)</code></td><td>Gets character group X</td></tr>
-    <tr><td><code>setCharacterX(type, value)</code></td><td>Sets character group X</td></tr>
-    <tr><td><code>getCharacterY(type)</code></td><td>Gets character group Y</td></tr>
-    <tr><td><code>setCharacterY(type, value)</code></td><td>Sets character group Y</td></tr>
-    <tr><td><code>cameraSetTarget(target)</code></td><td>Sets camera follow target</td></tr>
-  </tbody>
-</table>`,
+        body: `These functions take a character selector string: <code>'dad'</code> / <code>'opponent'</code> for the opponent, <code>'gf'</code> / <code>'girlfriend'</code> for the spectator, and anything else (e.g. <code>'boyfriend'</code>) for the player. To play a named animation on a character, use <a href="#" data-go="se-animation">playAnim('boyfriend', anim)</a>; to follow one with the camera, use <a href="#" data-go="se-camera">cameraSetTarget</a>.`,
       },
+      API({
+        id: "characterDance",
+        signature: "characterDance(character)",
+        params: [["character","String","<code>'dad'</code>, <code>'gf'</code>, or anything else for the player"]],
+        returns: "Void",
+        description: "Plays a character's idle/dance animation (respects left/right dancing characters).",
+        code: { lang: "lua", source: `characterDance('gf')` },
+      }),
+      API({
+        id: "getCharacterX",
+        signature: "getCharacterX(type)",
+        params: [["type","String","Character selector: <code>'dad'</code>/<code>'opponent'</code>, <code>'gf'</code>/<code>'girlfriend'</code>, or anything else for the player"]],
+        returns: "Float",
+        description: "Returns the X position of a character's group.",
+        code: { lang: "lua", source: `local x = getCharacterX('dad')` },
+      }),
+      API({
+        id: "setCharacterX",
+        signature: "setCharacterX(type, value)",
+        params: [["type","String","Character selector (see <code>getCharacterX</code>)"],["value","Float","New X position of the group"]],
+        returns: "Void",
+        description: "Sets the X position of a character's group.",
+        code: { lang: "lua", source: `setCharacterX('dad', 800)` },
+      }),
+      API({
+        id: "getCharacterY",
+        signature: "getCharacterY(type)",
+        params: [["type","String","Character selector (see <code>getCharacterX</code>)"]],
+        returns: "Float",
+        description: "Returns the Y position of a character's group.",
+        code: { lang: "lua", source: `local y = getCharacterY('dad')` },
+      }),
+      API({
+        id: "setCharacterY",
+        signature: "setCharacterY(type, value)",
+        params: [["type","String","Character selector (see <code>getCharacterX</code>)"],["value","Float","New Y position of the group"]],
+        returns: "Void",
+        description: "Sets the Y position of a character's group.",
+        code: { lang: "lua", source: `setCharacterY('dad', 200)` },
+      }),
     ],
   },
 
@@ -2003,33 +2410,197 @@ soundFadeOut('sfx_confirm', 2.0)
   "se-shader": {
     title: "Shader Functions",
     category: "API Reference",
-    subtitle: "Runtime GLSL shader management. Requires shadersEnabled in ClientPrefs.",
+    subtitle: "Runtime GLSL shader management. Requires shaders to be enabled in the player's options.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Overview",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>initLuaShader(name)</code></td><td>Initializes a shader from .frag/.vert files in shaders/ folder</td></tr>
-    <tr><td><code>setSpriteShader(obj, shader)</code></td><td>Applies a shader to a sprite</td></tr>
-    <tr><td><code>removeSpriteShader(obj)</code></td><td>Removes shader from a sprite</td></tr>
-    <tr><td><code>addShaderToCam(cam, shader, ?index)</code></td><td>Applies shader to a camera</td></tr>
-    <tr><td><code>removeCamShader(cam, shader)</code></td><td>Removes shader from camera</td></tr>
-    <tr><td><code>clearCamShaders(cam)</code></td><td>Removes all shaders from a camera</td></tr>
-    <tr><td><code>getShaderBool(obj, prop)</code> / <code>setShaderBool(obj, prop, val)</code></td><td>Bool uniform access</td></tr>
-    <tr><td><code>getShaderInt(obj, prop)</code> / <code>setShaderInt(obj, prop, val)</code></td><td>Int uniform access</td></tr>
-    <tr><td><code>getShaderFloat(obj, prop)</code> / <code>setShaderFloat(obj, prop, val)</code></td><td>Float uniform access</td></tr>
-    <tr><td><code>getShaderBoolArray(obj, prop)</code> / <code>setShaderBoolArray(obj, prop, val)</code></td><td>Array uniform access</td></tr>
-    <tr><td><code>getShaderIntArray(obj, prop)</code> / <code>setShaderIntArray(obj, prop, val)</code></td><td>Array uniform access</td></tr>
-    <tr><td><code>getShaderFloatArray(obj, prop)</code> / <code>setShaderFloatArray(obj, prop, val)</code></td><td>Array uniform access</td></tr>
-    <tr><td><code>setShaderSampler2D(obj, prop, bitmapdataPath)</code></td><td>Sets a texture uniform</td></tr>
-  </tbody>
-</table>`,
+        body: `Drop a <code>name.frag</code> and/or <code>name.vert</code> into a <code>shaders/</code> folder, load it with <code>initLuaShader</code>, then apply it to a sprite (<code>setSpriteShader</code>) or a whole camera (<code>addShaderToCam</code>). Uniform values are read and written with the typed <code>get/setShader*</code> functions.
+
+When targeting a sprite, pass its tag as <code>obj</code>. When targeting a camera shader, pass the <code>index</code> key you gave it in <code>addShaderToCam</code>. All of this is skipped if the player has shaders turned off.`,
       },
+      API({
+        id: "initLuaShader",
+        signature: "initLuaShader(name)",
+        params: [["name","String","Shader name — looks for <code>name.frag</code> and/or <code>name.vert</code> in a <code>shaders/</code> folder"]],
+        returns: "Bool — <code>true</code> if found and loaded",
+        description: "Loads a runtime GLSL shader from a <code>shaders/</code> folder so it can be applied to sprites or cameras. Returns <code>false</code> if shaders are disabled in options or the files are missing.",
+        code: { lang: "lua", source: `initLuaShader('grayscale')` },
+      }),
+      {
+        id: "sprites",
+        title: "Sprite shaders",
+        kind: "prose",
+        body: "Apply or clear a shader on a single sprite.",
+      },
+      API({
+        id: "setSpriteShader",
+        signature: "setSpriteShader(obj, shader)",
+        params: [["obj","String","Sprite tag (dotted paths allowed)"],["shader","String","Shader name; auto-loaded if not already initialised"]],
+        returns: "Bool",
+        description: "Applies a loaded shader to a sprite.",
+        code: { lang: "lua", source: `initLuaShader('grayscale')
+setSpriteShader('logo', 'grayscale')` },
+      }),
+      API({
+        id: "removeSpriteShader",
+        signature: "removeSpriteShader(obj)",
+        params: [["obj","String","Sprite tag"]],
+        returns: "Bool",
+        description: "Removes any shader from a sprite.",
+        code: { lang: "lua", source: `removeSpriteShader('logo')` },
+      }),
+      {
+        id: "cameras",
+        title: "Camera shaders",
+        kind: "prose",
+        body: "Apply shaders to an entire camera as screen filters. The <code>index</code> key identifies the filter for removal and uniform access.",
+      },
+      API({
+        id: "addShaderToCam",
+        signature: "addShaderToCam(cam, shader, ?index)",
+        params: [["cam","String","Camera name (<code>'game'</code>, <code>'hud'</code>, <code>'other'</code>) or <code>'global'</code> for the whole game window"],["shader","String","Shader name; auto-loaded if needed"],["index","String","Key to store this filter under, used later by <code>removeCamShader</code> and the uniform functions. Defaults to the shader name","optional"]],
+        returns: "Bool",
+        description: "Applies a shader to an entire camera as a screen filter.",
+        code: { lang: "lua", source: `addShaderToCam('game', 'grayscale')` },
+      }),
+      API({
+        id: "removeCamShader",
+        signature: "removeCamShader(cam, shader)",
+        params: [["cam","String","Camera name or <code>'global'</code>"],["shader","String","The <code>index</code> key the filter was added under"]],
+        returns: "Bool",
+        description: "Removes a single shader filter from a camera.",
+        code: { lang: "lua", source: `removeCamShader('game', 'grayscale')` },
+      }),
+      API({
+        id: "clearCamShaders",
+        signature: "clearCamShaders(cam)",
+        params: [["cam","String","Camera name or <code>'global'</code>"]],
+        returns: "Void",
+        description: "Removes all shader filters from a camera.",
+        code: { lang: "lua", source: `clearCamShaders('game')` },
+      }),
+      {
+        id: "read-uniforms",
+        title: "Read uniforms",
+        kind: "prose",
+        body: "Read a shader's uniform (variable) values. <code>obj</code> is a sprite tag, or a camera-shader <code>index</code> key.",
+      },
+      API({
+        id: "getShaderBool",
+        signature: "getShaderBool(obj, prop)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform (variable) name in the shader"]],
+        returns: "Bool",
+        description: "Reads a <code>bool</code> uniform.",
+        code: { lang: "lua", source: `local on = getShaderBool('logo', 'enabled')` },
+      }),
+      API({
+        id: "getShaderInt",
+        signature: "getShaderInt(obj, prop)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"]],
+        returns: "Int",
+        description: "Reads an <code>int</code> uniform.",
+        code: { lang: "lua", source: `local steps = getShaderInt('logo', 'steps')` },
+      }),
+      API({
+        id: "getShaderFloat",
+        signature: "getShaderFloat(obj, prop)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"]],
+        returns: "Float",
+        description: "Reads a <code>float</code> uniform.",
+        code: { lang: "lua", source: `local amt = getShaderFloat('logo', 'amount')` },
+      }),
+      API({
+        id: "getShaderBoolArray",
+        signature: "getShaderBoolArray(obj, prop)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"]],
+        returns: "Array&lt;Bool&gt;",
+        description: "Reads a <code>bool[]</code> uniform.",
+        code: { lang: "lua", source: `local flags = getShaderBoolArray('logo', 'flags')` },
+      }),
+      API({
+        id: "getShaderIntArray",
+        signature: "getShaderIntArray(obj, prop)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"]],
+        returns: "Array&lt;Int&gt;",
+        description: "Reads an <code>int[]</code> uniform.",
+        code: { lang: "lua", source: `local arr = getShaderIntArray('logo', 'offsets')` },
+      }),
+      API({
+        id: "getShaderFloatArray",
+        signature: "getShaderFloatArray(obj, prop)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"]],
+        returns: "Array&lt;Float&gt;",
+        description: "Reads a <code>float[]</code> uniform.",
+        code: { lang: "lua", source: `local rgb = getShaderFloatArray('logo', 'tint')` },
+      }),
+      {
+        id: "write-uniforms",
+        title: "Write uniforms",
+        kind: "prose",
+        body: "Set a shader's uniform values. Array setters take a Lua table of values.",
+      },
+      API({
+        id: "setShaderBool",
+        signature: "setShaderBool(obj, prop, value)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"],["value","Bool","New value"]],
+        returns: "Bool",
+        description: "Sets a <code>bool</code> uniform.",
+        code: { lang: "lua", source: `setShaderBool('logo', 'enabled', true)` },
+      }),
+      API({
+        id: "setShaderInt",
+        signature: "setShaderInt(obj, prop, value)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"],["value","Int","New value"]],
+        returns: "Bool",
+        description: "Sets an <code>int</code> uniform.",
+        code: { lang: "lua", source: `setShaderInt('logo', 'steps', 8)` },
+      }),
+      API({
+        id: "setShaderFloat",
+        signature: "setShaderFloat(obj, prop, value)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"],["value","Float","New value"]],
+        returns: "Bool",
+        description: "Sets a <code>float</code> uniform.",
+        code: { lang: "lua", source: `setShaderFloat('logo', 'amount', 0.5)` },
+      }),
+      API({
+        id: "setShaderBoolArray",
+        signature: "setShaderBoolArray(obj, prop, values)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"],["values","Table","Array of bools"]],
+        returns: "Bool",
+        description: "Sets a <code>bool[]</code> uniform.",
+        code: { lang: "lua", source: `setShaderBoolArray('logo', 'flags', {true, false, true})` },
+      }),
+      API({
+        id: "setShaderIntArray",
+        signature: "setShaderIntArray(obj, prop, values)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"],["values","Table","Array of ints"]],
+        returns: "Bool",
+        description: "Sets an <code>int[]</code> uniform.",
+        code: { lang: "lua", source: `setShaderIntArray('logo', 'offsets', {0, 2, 4})` },
+      }),
+      API({
+        id: "setShaderFloatArray",
+        signature: "setShaderFloatArray(obj, prop, values)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name"],["values","Table","Array of floats"]],
+        returns: "Bool",
+        description: "Sets a <code>float[]</code> uniform.",
+        code: { lang: "lua", source: `setShaderFloatArray('logo', 'tint', {1.0, 0.4, 0.6})` },
+      }),
+      API({
+        id: "setShaderSampler2D",
+        signature: "setShaderSampler2D(obj, prop, bitmapdataPath)",
+        params: [["obj","String","Sprite tag, or a camera-shader <code>index</code> key"],["prop","String","Uniform name (a <code>sampler2D</code>)"],["bitmapdataPath","String","Image path (resolved through <code>Paths.image</code>) to bind as a texture"]],
+        returns: "Bool",
+        description: "Binds an image as a texture (<code>sampler2D</code>) uniform.",
+        code: { lang: "lua", source: `setShaderSampler2D('logo', 'noiseTex', 'shaderTextures/noise')` },
+      }),
     ],
   },
+
+  /* ---------------- SE: Script Management ---------------- */
 
   /* ---------------- SE: Script Management ---------------- */
   "se-script": {
@@ -2038,33 +2609,166 @@ soundFadeOut('sfx_confirm', 2.0)
     subtitle: "Functions for managing other scripts, inter-script communication, and global variables.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "loading",
+        title: "Loading & discovery",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>getRunningScripts()</code></td><td>Returns table of all running Lua script paths</td></tr>
-    <tr><td><code>callScript(luaFile, funcName, ?args)</code></td><td>Calls a function on a specific Lua script</td></tr>
-    <tr><td><code>addLuaScript(luaFile, ?ignoreAlreadyRunning)</code></td><td>Dynamically loads a Lua script</td></tr>
-    <tr><td><code>removeLuaScript(luaFile)</code></td><td>Stops a running Lua script</td></tr>
-    <tr><td><code>isRunning(scriptFile)</code></td><td>Checks if a script is running</td></tr>
-    <tr><td><code>setVar(varName, value)</code></td><td>Stores a cross-script variable</td></tr>
-    <tr><td><code>getVar(varName)</code></td><td>Gets a stored variable</td></tr>
-    <tr><td><code>setOnScripts(varName, value, ?ignoreSelf, ?exclusions)</code></td><td>Sets global on all Lua + HScript</td></tr>
-    <tr><td><code>setOnLuas(varName, value, ?ignoreSelf, ?exclusions)</code></td><td>Sets global on Lua only</td></tr>
-    <tr><td><code>setOnHScript(varName, value, ?ignoreSelf, ?exclusions)</code></td><td>Sets global on HScript only</td></tr>
-    <tr><td><code>callOnScripts(funcName, ?args, ?ignoreStops, ?ignoreSelf, ?excludeScripts, ?excludeValues)</code></td><td>Calls function on all Lua + HScript</td></tr>
-    <tr><td><code>callOnLuas(funcName, ?args, ?ignoreStops, ?ignoreSelf, ?excludeScripts, ?excludeValues)</code></td><td>Calls function on Lua only</td></tr>
-    <tr><td><code>callOnHScript(funcName, ?args, ?ignoreStops, ?ignoreSelf, ?excludeScripts, ?excludeValues)</code></td><td>Calls function on HScript only</td></tr>
-    <tr><td><code>getGlobalFromScript(luaFile, global)</code></td><td>Reads a global from another Lua script</td></tr>
-    <tr><td><code>setGlobalFromScript(luaFile, global, val)</code></td><td>Writes a global to another Lua script</td></tr>
-    <tr><td><code>close()</code></td><td>Stops the current script</td></tr>
-    <tr><td><code>switchScriptedState(state)</code></td><td>Switches to a state script</td></tr>
-    <tr><td><code>openScriptedSubState(name, ?args)</code></td><td>Opens a substate script</td></tr>
-    <tr><td><code>closeScriptedSubState()</code></td><td>Closes scripted substate</td></tr>
-  </tbody>
-</table>`,
+        body: "Scripts are referenced by their file path. Load and unload them at runtime, or check what's running.",
+      },
+      API({
+        id: "getRunningScripts",
+        signature: "getRunningScripts()",
+        params: [],
+        returns: "Array&lt;String&gt; — paths of all running Lua scripts",
+        description: "Returns a table of the file paths of every currently running Lua script.",
+        code: { lang: "lua", source: `for i, path in ipairs(getRunningScripts()) do
+    print(path)
+end` },
+      }),
+      API({
+        id: "isRunning",
+        signature: "isRunning(luaFile)",
+        params: [["luaFile","String","Script path to check"]],
+        returns: "Bool",
+        description: "Returns <code>true</code> if the named Lua script is currently running.",
+        code: { lang: "lua", source: `if isRunning('scripts/rain') then
+    print('already running')
+end` },
+      }),
+      API({
+        id: "addLuaScript",
+        signature: "addLuaScript(luaFile, ?ignoreAlreadyRunning)",
+        params: [["luaFile","String","Path to a <code>.lua</code> script"],["ignoreAlreadyRunning","Bool","Load another copy even if it's already running","default false"]],
+        returns: "Void",
+        description: "Loads and starts another Lua script at runtime.",
+        code: { lang: "lua", source: `addLuaScript('scripts/extra/confetti')` },
+      }),
+      API({
+        id: "removeLuaScript",
+        signature: "removeLuaScript(luaFile)",
+        params: [["luaFile","String","Path of the running script to stop"]],
+        returns: "Void",
+        description: "Stops and removes a running Lua script.",
+        code: { lang: "lua", source: `removeLuaScript('scripts/extra/confetti')` },
+      }),
+      API({
+        id: "close",
+        signature: "close()",
+        params: [],
+        returns: "Bool",
+        description: "Stops the current script. No further callbacks fire after this returns.",
+        code: { lang: "lua", source: `if not isStoryMode then close() end` },
+      }),
+      {
+        id: "comms",
+        title: "Talking to other scripts",
+        kind: "prose",
+        body: "Call functions and read/write globals on a specific script by path.",
+      },
+      API({
+        id: "callScript",
+        signature: "callScript(luaFile, funcName, ?args)",
+        params: [["luaFile","String","Target script path"],["funcName","String","Function name to call in that script"],["args","Array","Arguments to pass","optional"]],
+        returns: "Void",
+        description: "Calls a global function defined in another running Lua script.",
+        code: { lang: "lua", source: `callScript('scripts/hud', 'flashScore', {500})` },
+      }),
+      API({
+        id: "getGlobalFromScript",
+        signature: "getGlobalFromScript(luaFile, global)",
+        params: [["luaFile","String","Target script path"],["global","String","Global variable name to read"]],
+        returns: "Dynamic",
+        description: "Reads a global variable from another running Lua script.",
+        code: { lang: "lua", source: `local n = getGlobalFromScript('scripts/hud', 'comboCount')` },
+      }),
+      API({
+        id: "setGlobalFromScript",
+        signature: "setGlobalFromScript(luaFile, global, val)",
+        params: [["luaFile","String","Target script path"],["global","String","Global variable name to write"],["val","Dynamic","New value"]],
+        returns: "Void",
+        description: "Writes a global variable in another running Lua script.",
+        code: { lang: "lua", source: `setGlobalFromScript('scripts/hud', 'comboCount', 0)` },
+      }),
+      {
+        id: "shared-vars",
+        title: "Shared variables",
+        kind: "prose",
+        body: "A simple key/value store shared by every Lua and HScript on the current state.",
+      },
+      API({
+        id: "setVar",
+        signature: "setVar(varName, value)",
+        params: [["varName","String","Variable name"],["value","Dynamic","Value to store"]],
+        returns: "Dynamic — the stored value",
+        description: "Stores a value in the shared variables map, readable from any script on the current state with <code>getVar</code>.",
+        code: { lang: "lua", source: `setVar('phase', 2)` },
+      }),
+      API({
+        id: "getVar",
+        signature: "getVar(name)",
+        params: [["name","String","Variable name"]],
+        returns: "Dynamic",
+        description: "Reads a value stored with <code>setVar</code> (returns nil if unset).",
+        code: { lang: "lua", source: `local phase = getVar('phase')` },
+      }),
+      {
+        id: "broadcast",
+        title: "Broadcasting",
+        kind: "prose",
+        body: "Set a global or call a function across many scripts at once. The <code>...Scripts</code> variants hit both Lua and HScript; the <code>...Luas</code> and <code>...HScript</code> variants target one kind.",
+      },
+      API({
+        id: "setOnScripts",
+        signature: "setOnScripts(varName, value, ?ignoreSelf, ?exclusions)",
+        params: [["varName","String","Global variable name to set"],["value","Dynamic","Value to assign"],["ignoreSelf","Bool","Skip the calling script","default false"],["exclusions","Array","Script paths to skip","optional"]],
+        returns: "Void",
+        description: "Sets a global variable on every running Lua <em>and</em> HScript.",
+        code: { lang: "lua", source: `setOnScripts('bgColor', '00FF99')` },
+      }),
+      API({
+        id: "setOnLuas",
+        signature: "setOnLuas(varName, value, ?ignoreSelf, ?exclusions)",
+        params: [["varName","String","Global variable name to set"],["value","Dynamic","Value to assign"],["ignoreSelf","Bool","Skip the calling script","default false"],["exclusions","Array","Script paths to skip","optional"]],
+        returns: "Void",
+        description: "Sets a global variable on every running Lua script only.",
+        code: { lang: "lua", source: `setOnLuas('bgColor', '00FF99')` },
+      }),
+      API({
+        id: "setOnHScript",
+        signature: "setOnHScript(varName, value, ?ignoreSelf, ?exclusions)",
+        params: [["varName","String","Global variable name to set"],["value","Dynamic","Value to assign"],["ignoreSelf","Bool","Skip the calling script","default false"],["exclusions","Array","Script paths to skip","optional"]],
+        returns: "Void",
+        description: "Sets a global variable on every running HScript only.",
+        code: { lang: "lua", source: `setOnHScript('bgColor', '00FF99')` },
+      }),
+      API({
+        id: "callOnScripts",
+        signature: "callOnScripts(funcName, ?args, ?ignoreStops, ?ignoreSelf, ?excludeScripts, ?excludeValues)",
+        params: [["funcName","String","Function name to call"],["args","Array","Arguments to pass","optional"],["ignoreStops","Bool","Keep calling even if a script returns <code>Function_Stop</code>","default false"],["ignoreSelf","Bool","Skip the calling script","default true"],["excludeScripts","Array","Script paths to skip","optional"],["excludeValues","Array","Return values to ignore","optional"]],
+        returns: "Bool",
+        description: "Calls a function on every running Lua <em>and</em> HScript.",
+        code: { lang: "lua", source: `callOnScripts('onCustomBeat', {curBeat})` },
+      }),
+      API({
+        id: "callOnLuas",
+        signature: "callOnLuas(funcName, ?args, ?ignoreStops, ?ignoreSelf, ?excludeScripts, ?excludeValues)",
+        params: [["funcName","String","Function name to call"],["args","Array","Arguments to pass","optional"],["ignoreStops","Bool","Keep calling even if a script returns <code>Function_Stop</code>","default false"],["ignoreSelf","Bool","Skip the calling script","default true"],["excludeScripts","Array","Script paths to skip","optional"],["excludeValues","Array","Return values to ignore","optional"]],
+        returns: "Bool",
+        description: "Calls a function on every running Lua script only.",
+        code: { lang: "lua", source: `callOnLuas('onCustomBeat', {curBeat})` },
+      }),
+      API({
+        id: "callOnHScript",
+        signature: "callOnHScript(funcName, ?args, ?ignoreStops, ?ignoreSelf, ?excludeScripts, ?excludeValues)",
+        params: [["funcName","String","Function name to call"],["args","Array","Arguments to pass","optional"],["ignoreStops","Bool","Keep calling even if a script returns <code>Function_Stop</code>","default false"],["ignoreSelf","Bool","Skip the calling script","default true"],["excludeScripts","Array","Script paths to skip","optional"],["excludeValues","Array","Return values to ignore","optional"]],
+        returns: "Bool",
+        description: "Calls a function on every running HScript only.",
+        code: { lang: "lua", source: `callOnHScript('onCustomBeat', {curBeat})` },
+      }),
+      {
+        id: "states",
+        title: "Scripted states",
+        kind: "prose",
+        body: `Switch to a scripted state or open a scripted substate with <a href="#" data-go="se-substate">switchScriptedState</a>, <a href="#" data-go="se-substate">openScriptedSubState</a>, and <a href="#" data-go="se-substate">closeScriptedSubState</a> — documented on the Scripted State/Substate page.`,
       },
     ],
   },
@@ -2076,22 +2780,67 @@ soundFadeOut('sfx_confirm', 2.0)
     subtitle: "Run Haxe code directly from Lua. Requires HScript support compiled in.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Overview",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>addHScript(scriptFile, ?ignoreAlreadyRunning)</code></td><td>Loads and runs a Haxe script file</td></tr>
-    <tr><td><code>removeHScript(scriptFile)</code></td><td>Stops a running HScript</td></tr>
-    <tr><td><code>setOnHScript(varName, value, ?ignoreSelf, ?exclusions)</code></td><td>Sets global on HScripts only</td></tr>
-    <tr><td><code>callOnHScript(funcName, ?args, ...)</code></td><td>Calls function on all HScripts</td></tr>
-    <tr><td><code>runHaxeCode(codeToRun, ?varsToBring, ?funcToRun, ?funcArgs)</code></td><td>Compiles and runs arbitrary Haxe code</td></tr>
-    <tr><td><code>runHaxeFunction(funcToRun, ?funcArgs)</code></td><td>Calls a function defined in previously run Haxe code</td></tr>
-    <tr><td><code>addHaxeLibrary(libName, ?libPackage)</code></td><td>Imports a Haxe class for use in runHaxeCode</td></tr>
-  </tbody>
-</table>`,
+        body: `HScript lets a Lua script run real Haxe code — useful for things the Lua API doesn't expose. <code>runHaxeCode</code> compiles a snippet in an interpreter that persists for the script, so functions and variables defined in one call are reusable by <code>runHaxeFunction</code> later. Inside Haxe code, <code>game</code> is the PlayState and most engine classes are available; import extras with <code>addHaxeLibrary</code>.
+
+To broadcast variables or calls to other HScripts, use <a href="#" data-go="se-script">setOnHScript</a> and <a href="#" data-go="se-script">callOnHScript</a> on the Script Management page.`,
       },
+      API({
+        id: "runHaxeCode",
+        signature: "runHaxeCode(codeToRun, ?varsToBring, ?funcToRun, ?funcArgs)",
+        params: [["codeToRun","String","Haxe source code to compile and execute"],["varsToBring","Table","Extra variables to inject into the script's scope by name","optional"],["funcToRun","String","Name of a function defined in the code to call right after running it","optional"],["funcArgs","Array","Arguments for <code>funcToRun</code>","optional"]],
+        returns: "Dynamic — only Bool/Int/Float/String/Array returns are passed back to Lua",
+        description: "Compiles and runs arbitrary Haxe code in this script's HScript interpreter.",
+        code: { lang: "lua", source: `runHaxeCode([[
+    game.camGame.zoom += 0.1;
+]])` },
+      }),
+      API({
+        id: "runHaxeFunction",
+        signature: "runHaxeFunction(funcToRun, ?funcArgs)",
+        params: [["funcToRun","String","Name of a function previously defined via <code>runHaxeCode</code>"],["funcArgs","Array","Arguments to pass","optional"]],
+        returns: "Dynamic — the function's return value",
+        description: "Calls a function that was defined in an earlier <code>runHaxeCode</code> block.",
+        code: { lang: "lua", source: `runHaxeCode([[
+    function addZoom(amount:Float) {
+        game.camGame.zoom += amount;
+    }
+]])
+runHaxeFunction('addZoom', {0.05})` },
+      }),
+      API({
+        id: "addHaxeLibrary",
+        signature: "addHaxeLibrary(libName, ?libPackage)",
+        params: [["libName","String","Class or enum name to import"],["libPackage","String","Package the class lives in, without the trailing dot","default ''"]],
+        returns: "Void",
+        description: "Imports a Haxe class or enum so it can be referenced by name inside <code>runHaxeCode</code>.",
+        code: { lang: "lua", source: `addHaxeLibrary('FlxBar', 'flixel.ui')
+runHaxeCode([[ trace(FlxBar); ]])` },
+      }),
+      {
+        id: "files",
+        title: "Script files",
+        kind: "prose",
+        body: "Load and unload standalone <code>.hx</code> script files at runtime.",
+      },
+      API({
+        id: "addHScript",
+        signature: "addHScript(hscriptFile, ?ignoreAlreadyRunning)",
+        params: [["hscriptFile","String","Path to a <code>.hx</code> script file (extension optional)"],["ignoreAlreadyRunning","Bool","Load another copy even if this file is already running","default false"]],
+        returns: "Void",
+        description: "Loads and runs a standalone Haxe script file, the same way the engine loads its automatic scripts.",
+        code: { lang: "lua", source: `addHScript('scripts/myHaxeScript')` },
+      }),
+      API({
+        id: "removeHScript",
+        signature: "removeHScript(hscriptFile)",
+        params: [["hscriptFile","String","Path of the running HScript to stop"]],
+        returns: "Void",
+        description: "Stops and removes a running HScript that was loaded with <code>addHScript</code>.",
+        code: { lang: "lua", source: `removeHScript('scripts/myHaxeScript')` },
+      }),
     ],
   },
 
@@ -2102,19 +2851,40 @@ soundFadeOut('sfx_confirm', 2.0)
     subtitle: "Functions for switching to a ScriptedState or opening/closing a ScriptedSubState, loading the given Lua/HScript file.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Overview",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>switchScriptedState(state)</code></td><td>Switches to a ScriptedState that loads the given Lua/HScript file</td></tr>
-    <tr><td><code>openScriptedSubState(substate)</code></td><td>Opens a ScriptedSubState by name</td></tr>
-    <tr><td><code>closeScriptedSubState()</code></td><td>Closes the current ScriptedSubState</td></tr>
-  </tbody>
-</table>
-<hr>
-<h4>Examples</h4>
+        body: "A <strong>ScriptedState</strong> replaces the whole screen; a <strong>ScriptedSubState</strong> opens on top of the current one (handy for a pause menu). Both are driven by a Lua or HScript file you point them at, and you can forward a table of <code>args</code> to that file's scripts.",
+      },
+      API({
+        id: "switchScriptedState",
+        signature: "switchScriptedState(state, ?args)",
+        params: [["state","String","Path to a Lua/HScript file that drives the new state"],["args","Array","Values forwarded to the new state's scripts","optional"]],
+        returns: "Void",
+        description: "Switches the game to a <code>ScriptedState</code> backed by the given script file.",
+        code: { lang: "lua", source: `switchScriptedState('states/credits')` },
+      }),
+      API({
+        id: "openScriptedSubState",
+        signature: "openScriptedSubState(substate, ?args)",
+        params: [["substate","String","Path to a Lua/HScript file that drives the substate"],["args","Array","Values forwarded to the substate's scripts","optional"]],
+        returns: "Void",
+        description: "Opens a <code>ScriptedSubState</code> on top of the current state.",
+        code: { lang: "lua", source: `openScriptedSubState('substates/pause')` },
+      }),
+      API({
+        id: "closeScriptedSubState",
+        signature: "closeScriptedSubState()",
+        params: [],
+        returns: "Void",
+        description: "Closes the currently open ScriptedSubState.",
+        code: { lang: "lua", source: `closeScriptedSubState()` },
+      }),
+      {
+        id: "example",
+        title: "Worked example",
+        kind: "prose",
+        body: `<h4>Examples</h4>
 <div class="code-block" style="margin:0">
 <div class="code-head"><span class="lang-dot" style="background:var(--violet)"></span><span class="filename">TitleState.lua</span></div>
 <div class="code-body" style="grid-template-columns:1fr">
@@ -2156,20 +2926,74 @@ end</pre>
     subtitle: "Persistent data storage using FlxSave.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Save slots",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>initSaveData(name, ?folder)</code></td><td>Initializes a save slot</td></tr>
-    <tr><td><code>flushSaveData(name)</code></td><td>Writes save data to disk</td></tr>
-    <tr><td><code>getDataFromSave(name, field, ?defaultValue)</code></td><td>Reads a value from save</td></tr>
-    <tr><td><code>setDataFromSave(name, field, value)</code></td><td>Writes a value to save</td></tr>
-    <tr><td><code>eraseSaveData(name)</code></td><td>Erases entire save slot</td></tr>
-  </tbody>
-</table>`,
+        body: "Call <code>initSaveData</code> once to bind a named slot, read and write fields with <code>get/setDataFromSave</code>, then <code>flushSaveData</code> to write it to disk. Changes only persist after a flush.",
       },
+      API({
+        id: "initSaveData",
+        signature: "initSaveData(name, ?folder)",
+        params: [["name","String","Save slot name (the file the data is bound to)"],["folder","String","Subfolder under the save path","default 'psychenginemods'"]],
+        returns: "Void",
+        description: "Creates (binds) a save slot so you can read and write fields on it. Call once before using the other save functions.",
+        code: { lang: "lua", source: `initSaveData('myMod')` },
+      }),
+      API({
+        id: "getDataFromSave",
+        signature: "getDataFromSave(name, field, ?defaultValue)",
+        params: [["name","String","Save slot name"],["field","String","Field name to read"],["defaultValue","Dynamic","Value returned if the field is missing","optional"]],
+        returns: "Dynamic",
+        description: "Reads a field from a save slot, returning <code>defaultValue</code> if it isn't set.",
+        code: { lang: "lua", source: `local hi = getDataFromSave('myMod', 'highScore', 0)` },
+      }),
+      API({
+        id: "setDataFromSave",
+        signature: "setDataFromSave(name, field, value)",
+        params: [["name","String","Save slot name"],["field","String","Field name to write"],["value","Dynamic","Value to store"]],
+        returns: "Void",
+        description: "Writes a field to a save slot in memory. Call <code>flushSaveData</code> to persist it.",
+        code: { lang: "lua", source: `setDataFromSave('myMod', 'highScore', 9000)
+flushSaveData('myMod')` },
+      }),
+      API({
+        id: "flushSaveData",
+        signature: "flushSaveData(name)",
+        params: [["name","String","Save slot name"]],
+        returns: "Void",
+        description: "Writes the save slot to disk. Until you flush, changes only live in memory.",
+        code: { lang: "lua", source: `flushSaveData('myMod')` },
+      }),
+      API({
+        id: "eraseSaveData",
+        signature: "eraseSaveData(name)",
+        params: [["name","String","Save slot name"]],
+        returns: "Void",
+        description: "Erases all data in a save slot.",
+        code: { lang: "lua", source: `eraseSaveData('myMod')` },
+      }),
+      {
+        id: "mod-settings",
+        title: "Mod settings",
+        kind: "prose",
+        body: "Read and write the player's values for the options defined in the mod's <code>data/settings.json</code>. When <code>modName</code> is omitted, the folder of the currently running packed mod is used.",
+      },
+      API({
+        id: "getModSetting",
+        signature: "getModSetting(saveTag, ?modName)",
+        params: [["saveTag","String","Setting name as defined in <code>data/settings.json</code>"],["modName","String","Mod folder to read from; defaults to the current packed mod","optional"]],
+        returns: "Dynamic",
+        description: "Returns the player's value for one of the mod's settings.",
+        code: { lang: "lua", source: `local hard = getModSetting('hardMode')` },
+      }),
+      API({
+        id: "setModSetting",
+        signature: "setModSetting(saveTag, value, ?modName)",
+        params: [["saveTag","String","Setting name from <code>data/settings.json</code>"],["value","Dynamic","New value"],["modName","String","Mod folder to write to; defaults to the current packed mod","optional"]],
+        returns: "Void",
+        description: "Sets the value of one of the mod's settings.",
+        code: { lang: "lua", source: `setModSetting('hardMode', true)` },
+      }),
     ],
   },
 
@@ -2180,20 +3004,55 @@ end</pre>
     subtitle: "Read and write files from scripts.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Paths",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>getTextFromFile(path)</code></td><td>Returns contents of a text file</td></tr>
-    <tr><td><code>saveFile(path, content, ?absolute)</code></td><td>Writes content to a file</td></tr>
-    <tr><td><code>deleteFile(path, ?ignoreModFolders)</code></td><td>Deletes a file</td></tr>
-    <tr><td><code>directoryFileList(folder)</code></td><td>Lists files in a directory</td></tr>
-    <tr><td><code>checkFileExists(filename, ?absolute)</code></td><td>Checks if a file exists</td></tr>
-  </tbody>
-</table>`,
+        body: "Relative paths are resolved through the asset and mod system (and writes land in the mods folder). Pass <code>absolute = true</code> to work with a raw filesystem path instead.",
       },
+      API({
+        id: "getTextFromFile",
+        signature: "getTextFromFile(path)",
+        params: [["path","String","Text file path (resolved through the asset/mod system)"]],
+        returns: "String — file contents, or nil if not found",
+        description: "Reads a text file and returns its contents.",
+        code: { lang: "lua", source: `local txt = getTextFromFile('data/dialogue.txt')` },
+      }),
+      API({
+        id: "saveFile",
+        signature: "saveFile(path, content, ?absolute)",
+        params: [["path","String","Destination path; relative paths are written under the mods folder"],["content","String","Text content to write"],["absolute","Bool","Treat <code>path</code> as a raw filesystem path","default false"]],
+        returns: "Bool — <code>true</code> on success",
+        description: "Writes text content to a file.",
+        code: { lang: "lua", source: `saveFile('saves/notes.txt', 'hello world')` },
+      }),
+      API({
+        id: "deleteFile",
+        signature: "deleteFile(path, ?ignoreModFolders)",
+        params: [["path","String","File path to delete"],["ignoreModFolders","Bool","Skip mod folders and use the asset path","default false"]],
+        returns: "Bool — <code>true</code> if a file was deleted",
+        description: "Deletes a file.",
+        code: { lang: "lua", source: `deleteFile('saves/notes.txt')` },
+      }),
+      API({
+        id: "directoryFileList",
+        signature: "directoryFileList(folder)",
+        params: [["folder","String","Folder path to list"]],
+        returns: "Array&lt;String&gt; — file & folder names",
+        description: "Returns the names of everything inside a folder (empty if it doesn't exist).",
+        code: { lang: "lua", source: `for i, f in ipairs(directoryFileList('mods/myMod/images')) do
+    print(f)
+end` },
+      }),
+      API({
+        id: "checkFileExists",
+        signature: "checkFileExists(filename, ?absolute)",
+        params: [["filename","String","File path to check"],["absolute","Bool","Treat <code>filename</code> as a raw filesystem path","default false"]],
+        returns: "Bool",
+        description: "Returns <code>true</code> if the file exists (checks mod folders and assets unless <code>absolute</code>).",
+        code: { lang: "lua", source: `if checkFileExists('data/extra.json') then
+    print('found it')
+end` },
+      }),
     ],
   },
 
@@ -2204,19 +3063,43 @@ end</pre>
     subtitle: "Preload assets to prevent runtime stutters.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Why precache",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>precacheImage(name)</code></td><td>Pre-caches an image</td></tr>
-    <tr><td><code>precacheSound(name)</code></td><td>Pre-caches a sound</td></tr>
-    <tr><td><code>precacheMusic(name)</code></td><td>Pre-caches music</td></tr>
-    <tr><td><code>addCharacterToList(name, type)</code></td><td>Pre-caches a character for instant use</td></tr>
-  </tbody>
-</table>`,
+        body: "Loading an asset the first time it's used can cause a brief hitch. Precaching during <code>onCreate</code> loads it up front so the first real use is smooth.",
       },
+      API({
+        id: "precacheImage",
+        signature: "precacheImage(name)",
+        params: [["name","String","Image path (no extension), resolved through <code>Paths.image</code>"]],
+        returns: "Void",
+        description: "Loads an image into the cache ahead of time.",
+        code: { lang: "lua", source: `precacheImage('characters/special')` },
+      }),
+      API({
+        id: "precacheSound",
+        signature: "precacheSound(name)",
+        params: [["name","String","Sound path (no extension)"]],
+        returns: "Void",
+        description: "Loads a sound into the cache ahead of time.",
+        code: { lang: "lua", source: `precacheSound('cancelMenu')` },
+      }),
+      API({
+        id: "precacheMusic",
+        signature: "precacheMusic(name)",
+        params: [["name","String","Music path (no extension)"]],
+        returns: "Void",
+        description: "Loads a music track into the cache ahead of time.",
+        code: { lang: "lua", source: `precacheMusic('breakfast')` },
+      }),
+      API({
+        id: "addCharacterToList",
+        signature: "addCharacterToList(name, type)",
+        params: [["name","String","Character JSON name"],["type","String","<code>'dad'</code>, <code>'gf'</code>/<code>'girlfriend'</code>, or anything else for the player"]],
+        returns: "Void",
+        description: "Preloads a character so it can be swapped in instantly mid-song.",
+        code: { lang: "lua", source: `addCharacterToList('pico-speaker', 'dad')` },
+      }),
     ],
   },
 
@@ -2228,79 +3111,290 @@ end</pre>
     sections: [
       {
         id: "control-vars",
-        title: "Function reference",
+        title: "Control mode",
         kind: "prose",
-        body: `<p><b>Control mode variables:</b></p>
+        body: `Two read-only globals describe the active mobile control scheme:
 <table class="tbl">
-  <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+  <thead><tr><th>Variable</th><th>Type</th><th>Description</th></tr></thead>
   <tbody>
-    <tr><td><code>mobileC</code></td><td>Current serialized mobile control mode (Controls.instance.mobileC)</td></tr>
-    <tr><td><code>mobileControlsMode</code></td><td>Returns current mode name: <code>'left'</code>, <code>'right'</code>, <code>'custom'</code>, <code>'hitbox'</code>, <code>'none'</code>, <code>'unknown'</code></td></tr>
-  </tbody>
-</table>
-<p><b>Extra button input:</b></p>
-<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>extraButtonPressed(button)</code></td><td>Is an extra button being held? (button: <code>'second'</code> or default)</td></tr>
-    <tr><td><code>extraButtonJustPressed(button)</code></td><td>Extra button pressed this frame?</td></tr>
-    <tr><td><code>extraButtonJustReleased(button)</code></td><td>Extra button released this frame?</td></tr>
-    <tr><td><code>extraButtonReleased(button)</code></td><td>Extra button not held?</td></tr>
-  </tbody>
-</table>
-<p><b>Touchpad management:</b></p>
-<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>addTouchPad(DPadMode, ActionMode)</code></td><td>Creates a touchpad with the given DPad and action button modes</td></tr>
-    <tr><td><code>removeTouchPad()</code></td><td>Removes the touchpad</td></tr>
-    <tr><td><code>addTouchPadCamera(?defaultDrawTarget)</code></td><td>Adds a camera for the touchpad so it renders properly</td></tr>
-    <tr><td><code>touchPadJustPressed(button)</code></td><td>Touchpad button just pressed</td></tr>
-    <tr><td><code>touchPadPressed(button)</code></td><td>Touchpad button held</td></tr>
-    <tr><td><code>touchPadJustReleased(button)</code></td><td>Touchpad button just released</td></tr>
-    <tr><td><code>touchPadReleased(button)</code></td><td>Touchpad button released</td></tr>
-  </tbody>
-</table>
-<p><b>Raw touch input:</b> <code>touchJustPressed</code>, <code>touchPressed</code>, <code>touchJustReleased</code>, <code>touchReleased</code> — bound directly to <code>TouchUtil</code>.</p>
-<p><b>Touch overlap checks:</b></p>
-<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>touchPressedObject(object, ?camera)</code></td><td>Is touch pressing on this object?</td></tr>
-    <tr><td><code>touchJustPressedObject(object, ?camera)</code></td><td>Touch just pressed on this object?</td></tr>
-    <tr><td><code>touchJustReleasedObject(object, ?camera)</code></td><td>Touch just released on this object?</td></tr>
-    <tr><td><code>touchReleasedObject(object, ?camera)</code></td><td>Touch released on this object?</td></tr>
-    <tr><td><code>touchPressedObjectComplex(object, ?camera)</code></td><td>Complex overlap check — touch pressed</td></tr>
-    <tr><td><code>touchJustPressedObjectComplex(object, ?camera)</code></td><td>Complex — touch just pressed</td></tr>
-    <tr><td><code>touchJustReleasedObjectComplex(object, ?camera)</code></td><td>Complex — touch just released</td></tr>
-    <tr><td><code>touchReleasedObjectComplex(object, ?camera)</code></td><td>Complex — touch released</td></tr>
-    <tr><td><code>touchOverlapsObject(object, ?camera)</code></td><td>Is touch currently overlapping this object?</td></tr>
-    <tr><td><code>touchOverlapsObjectComplex(object, ?camera)</code></td><td>Complex overlap check</td></tr>
-  </tbody>
-</table>
-<p><b>Haptics:</b></p>
-<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>vibrate(?duration, ?period)</code></td><td>Triggers device vibration (ms duration, ms period)</td></tr>
-  </tbody>
-</table>
-<p><b>Android-only variables:</b></p>
-<table class="tbl">
-  <thead><tr><th>Variable</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>isAndroidTV()</code></td><td>Is the device an Android TV?</td></tr>
-    <tr><td><code>isTablet()</code></td><td>Is the device a tablet?</td></tr>
-    <tr><td><code>isChromebook()</code></td><td>Is the device a Chromebook?</td></tr>
-    <tr><td><code>isDeXMode()</code></td><td>Is Samsung DeX active?</td></tr>
-    <tr><td><code>isDolbyAtmos()</code></td><td>Does the device support Dolby Atmos?</td></tr>
-    <tr><td><code>backJustPressed / backPressed / backJustReleased</code></td><td>Android back button states</td></tr>
-    <tr><td><code>menuJustPressed / menuPressed / menuJustReleased</code></td><td>Android menu button states</td></tr>
-    <tr><td><code>minimizeWindow()</code></td><td>Minimizes the app</td></tr>
-    <tr><td><code>showToast(text, ?duration, ?xOffset, ?yOffset)</code></td><td>Shows an Android toast notification</td></tr>
+    <tr><td><code>mobileC</code></td><td>Bool</td><td>Whether mobile controls are active (<code>Controls.instance.mobileC</code>)</td></tr>
+    <tr><td><code>mobileControlsMode</code></td><td>String</td><td>Current mode name: <code>'left'</code>, <code>'right'</code>, <code>'custom'</code>, <code>'hitbox'</code>, <code>'none'</code>, or <code>'unknown'</code></td></tr>
   </tbody>
 </table>`,
       },
+      {
+        id: "extra-buttons",
+        title: "Extra buttons",
+        kind: "prose",
+        body: "Poll the extra action buttons. The <code>button</code> argument is <code>'second'</code> for the second extra button, or anything else for the first.",
+      },
+      API({
+        id: "extraButtonPressed",
+        signature: "extraButtonPressed(button)",
+        params: [["button","String","<code>'second'</code> or default for the first"]],
+        returns: "Bool",
+        description: "Whether an extra action button is currently held.",
+        code: { lang: "lua", source: `if extraButtonPressed('second') then end` },
+      }),
+      API({
+        id: "extraButtonJustPressed",
+        signature: "extraButtonJustPressed(button)",
+        params: [["button","String","<code>'second'</code> or default for the first"]],
+        returns: "Bool",
+        description: "Whether an extra button was pressed this frame.",
+        code: { lang: "lua", source: `if extraButtonJustPressed('second') then end` },
+      }),
+      API({
+        id: "extraButtonJustReleased",
+        signature: "extraButtonJustReleased(button)",
+        params: [["button","String","<code>'second'</code> or default for the first"]],
+        returns: "Bool",
+        description: "Whether an extra button was released this frame.",
+        code: { lang: "lua", source: `if extraButtonJustReleased('second') then end` },
+      }),
+      API({
+        id: "extraButtonReleased",
+        signature: "extraButtonReleased(button)",
+        params: [["button","String","<code>'second'</code> or default for the first"]],
+        returns: "Bool",
+        description: "Whether an extra button is not held.",
+        code: { lang: "lua", source: `if extraButtonReleased('second') then end` },
+      }),
+      {
+        id: "touchpad",
+        title: "Touchpad",
+        kind: "prose",
+        body: "Create and poll an on-screen touchpad (D-pad + action buttons).",
+      },
+      API({
+        id: "addTouchPad",
+        signature: "addTouchPad(DPadMode, ActionMode)",
+        params: [["DPadMode","String","D-pad layout, e.g. <code>'LEFT_FULL'</code>, <code>'UP_DOWN'</code>, <code>'NONE'</code>"],["ActionMode","String","Action-button layout, e.g. <code>'A'</code>, <code>'A_B'</code>, <code>'NONE'</code>"]],
+        returns: "Void",
+        description: "Creates an on-screen touchpad with the given D-pad and action-button layouts.",
+        code: { lang: "lua", source: `addTouchPad('LEFT_FULL', 'A_B')` },
+      }),
+      API({
+        id: "removeTouchPad",
+        signature: "removeTouchPad()",
+        params: [],
+        returns: "Void",
+        description: "Removes the on-screen touchpad.",
+        code: { lang: "lua", source: `removeTouchPad()` },
+      }),
+      API({
+        id: "addTouchPadCamera",
+        signature: "addTouchPadCamera(?defaultDrawTarget)",
+        params: [["defaultDrawTarget","Bool","Use the touchpad camera as a default draw target","default false"]],
+        returns: "Void",
+        description: "Adds a dedicated camera so the touchpad renders above the scene. Call after <code>addTouchPad</code>.",
+        code: { lang: "lua", source: `addTouchPad('LEFT_FULL', 'A_B')
+addTouchPadCamera()` },
+      }),
+      API({
+        id: "touchPadJustPressed",
+        signature: "touchPadJustPressed(button)",
+        params: [["button","String","Touchpad button name, e.g. <code>'A'</code>, <code>'LEFT'</code>"]],
+        returns: "Bool",
+        description: "Whether a touchpad button was pressed this frame.",
+        code: { lang: "lua", source: `if touchPadJustPressed('A') then end` },
+      }),
+      API({
+        id: "touchPadPressed",
+        signature: "touchPadPressed(button)",
+        params: [["button","String","Touchpad button name"]],
+        returns: "Bool",
+        description: "Whether a touchpad button is currently held.",
+        code: { lang: "lua", source: `if touchPadPressed('LEFT') then end` },
+      }),
+      API({
+        id: "touchPadJustReleased",
+        signature: "touchPadJustReleased(button)",
+        params: [["button","String","Touchpad button name"]],
+        returns: "Bool",
+        description: "Whether a touchpad button was released this frame.",
+        code: { lang: "lua", source: `if touchPadJustReleased('A') then end` },
+      }),
+      API({
+        id: "touchPadReleased",
+        signature: "touchPadReleased(button)",
+        params: [["button","String","Touchpad button name"]],
+        returns: "Bool",
+        description: "Whether a touchpad button is not held.",
+        code: { lang: "lua", source: `if touchPadReleased('A') then end` },
+      }),
+      {
+        id: "raw-touch",
+        title: "Raw touch",
+        kind: "prose",
+        body: "Poll for any screen touch, anywhere. Bound directly to <code>TouchUtil</code>.",
+      },
+      API({
+        id: "touchJustPressed",
+        signature: "touchJustPressed()",
+        params: [],
+        returns: "Bool",
+        description: "Whether the screen was touched this frame.",
+        code: { lang: "lua", source: `if touchJustPressed() then end` },
+      }),
+      API({
+        id: "touchPressed",
+        signature: "touchPressed()",
+        params: [],
+        returns: "Bool",
+        description: "Whether the screen is currently being touched.",
+        code: { lang: "lua", source: `if touchPressed() then end` },
+      }),
+      API({
+        id: "touchJustReleased",
+        signature: "touchJustReleased()",
+        params: [],
+        returns: "Bool",
+        description: "Whether a touch was released this frame.",
+        code: { lang: "lua", source: `if touchJustReleased() then end` },
+      }),
+      API({
+        id: "touchReleased",
+        signature: "touchReleased()",
+        params: [],
+        returns: "Bool",
+        description: "Whether the screen is not being touched.",
+        code: { lang: "lua", source: `if touchReleased() then end` },
+      }),
+      {
+        id: "touch-objects",
+        title: "Touch on objects",
+        kind: "prose",
+        body: "Test a touch against a specific sprite. The <code>...Complex</code> variants use a rotation-aware overlap test; <code>touchOverlaps...</code> ignores press state.",
+      },
+      API({
+        id: "touchPressedObject",
+        signature: "touchPressedObject(object, ?camera)",
+        params: [["object","String","Sprite tag to test against"],["camera","String","Camera whose space to use for the hit test","optional"]],
+        returns: "Bool",
+        description: "Whether a touch is held on this object.",
+        code: { lang: "lua", source: `if touchPressedObject('playButton') then end` },
+      }),
+      API({
+        id: "touchJustPressedObject",
+        signature: "touchJustPressedObject(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Whether a touch was pressed on this object this frame.",
+        code: { lang: "lua", source: `if touchJustPressedObject('playButton') then end` },
+      }),
+      API({
+        id: "touchJustReleasedObject",
+        signature: "touchJustReleasedObject(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Whether a touch was released over this object this frame.",
+        code: { lang: "lua", source: `if touchJustReleasedObject('playButton') then end` },
+      }),
+      API({
+        id: "touchReleasedObject",
+        signature: "touchReleasedObject(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Whether a touch is released (not held) over this object.",
+        code: { lang: "lua", source: `if touchReleasedObject('playButton') then end` },
+      }),
+      API({
+        id: "touchPressedObjectComplex",
+        signature: "touchPressedObjectComplex(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Rotation-aware version of <code>touchPressedObject</code>.",
+        code: { lang: "lua", source: `if touchPressedObjectComplex('arrow') then end` },
+      }),
+      API({
+        id: "touchJustPressedObjectComplex",
+        signature: "touchJustPressedObjectComplex(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Rotation-aware version of <code>touchJustPressedObject</code>.",
+        code: { lang: "lua", source: `if touchJustPressedObjectComplex('arrow') then end` },
+      }),
+      API({
+        id: "touchJustReleasedObjectComplex",
+        signature: "touchJustReleasedObjectComplex(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Rotation-aware version of <code>touchJustReleasedObject</code>.",
+        code: { lang: "lua", source: `if touchJustReleasedObjectComplex('arrow') then end` },
+      }),
+      API({
+        id: "touchReleasedObjectComplex",
+        signature: "touchReleasedObjectComplex(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Rotation-aware version of <code>touchReleasedObject</code>.",
+        code: { lang: "lua", source: `if touchReleasedObjectComplex('arrow') then end` },
+      }),
+      API({
+        id: "touchOverlapsObject",
+        signature: "touchOverlapsObject(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Whether a touch point is currently over this object, regardless of press state.",
+        code: { lang: "lua", source: `if touchOverlapsObject('hitZone') then end` },
+      }),
+      API({
+        id: "touchOverlapsObjectComplex",
+        signature: "touchOverlapsObjectComplex(object, ?camera)",
+        params: [["object","String","Sprite tag"],["camera","String","Camera for the hit test","optional"]],
+        returns: "Bool",
+        description: "Rotation-aware version of <code>touchOverlapsObject</code>.",
+        code: { lang: "lua", source: `if touchOverlapsObjectComplex('hitZone') then end` },
+      }),
+      {
+        id: "haptics",
+        title: "Haptics",
+        kind: "prose",
+        body: "Trigger device vibration.",
+      },
+      API({
+        id: "vibrate",
+        signature: "vibrate(?duration, ?period)",
+        params: [["duration","Int","Vibration length in milliseconds (nothing happens if omitted)","optional"],["period","Int","Delay before the vibration in milliseconds","default 0"]],
+        returns: "Void",
+        description: "Triggers a device vibration.",
+        code: { lang: "lua", source: `vibrate(200)` },
+      }),
+      {
+        id: "android",
+        title: "Android",
+        kind: "prose",
+        body: `Android-only device-detection globals (read-only booleans):
+<table class="tbl">
+  <thead><tr><th>Variable</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>isAndroidTV</code></td><td>Is the device an Android TV?</td></tr>
+    <tr><td><code>isTablet</code></td><td>Is the device a tablet?</td></tr>
+    <tr><td><code>isChromebook</code></td><td>Is the device a Chromebook?</td></tr>
+    <tr><td><code>isDeXMode</code></td><td>Is Samsung DeX active?</td></tr>
+    <tr><td><code>isDolbyAtmos</code></td><td>Does the device support Dolby Atmos?</td></tr>
+    <tr><td><code>backJustPressed</code> / <code>backPressed</code> / <code>backJustReleased</code></td><td>Android back-button states</td></tr>
+    <tr><td><code>menuJustPressed</code> / <code>menuPressed</code> / <code>menuJustReleased</code></td><td>Android menu-button states</td></tr>
+  </tbody>
+</table>`,
+      },
+      API({
+        id: "minimizeWindow",
+        signature: "minimizeWindow()",
+        params: [],
+        returns: "Void",
+        description: "Minimizes the app (Android only).",
+        code: { lang: "lua", source: `minimizeWindow()` },
+      }),
+      API({
+        id: "showToast",
+        signature: "showToast(text, duration, ?xOffset, ?yOffset)",
+        params: [["text","String","Message to show"],["duration","Int","How long to show it (Android toast length)"],["xOffset","Int","Horizontal offset","default 0"],["yOffset","Int","Vertical offset","default 0"]],
+        returns: "Void",
+        description: "Shows an Android toast notification.",
+        code: { lang: "lua", source: `showToast('Saved!', 1)` },
+      }),
     ],
   },
 
@@ -2311,17 +3405,27 @@ end</pre>
     subtitle: "Discord Rich Presence integration.",
     sections: [
       {
-        id: "functions",
-        title: "Function reference",
+        id: "intro",
+        title: "Overview",
         kind: "prose",
-        body: `<table class="tbl">
-  <thead><tr><th>Function</th><th>Description</th></tr></thead>
-  <tbody>
-    <tr><td><code>changeDiscordPresence(details, state, ?smallImageKey, ?hasStartTimestamp, ?endTimestamp)</code></td><td>Updates the Discord Rich Presence display</td></tr>
-    <tr><td><code>changeDiscordClientID(id)</code></td><td>Changes the Discord application client ID</td></tr>
-  </tbody>
-</table>`,
+        body: "Update what the player's Discord profile shows while they play. Requires Discord Rich Presence to be compiled in and the user to have Discord running.",
       },
+      API({
+        id: "changeDiscordPresence",
+        signature: "changeDiscordPresence(details, state, ?smallImageKey, ?hasStartTimestamp, ?endTimestamp)",
+        params: [["details","String","Top line — what the player is doing"],["state","String","Second line; may be nil"],["smallImageKey","String","Key of a small image to overlay on the art","optional"],["hasStartTimestamp","Bool","Show elapsed time counting up from now","optional"],["endTimestamp","Float","Unix time to count down to (used with <code>hasStartTimestamp</code>)","optional"]],
+        returns: "Void",
+        description: "Updates the Discord Rich Presence shown on the player's profile.",
+        code: { lang: "lua", source: `changeDiscordPresence('Playing a custom song', 'Hard difficulty')` },
+      }),
+      API({
+        id: "changeDiscordClientID",
+        signature: "changeDiscordClientID(?id)",
+        params: [["id","String","New Discord application client ID; omit to restore the default","optional"]],
+        returns: "Void",
+        description: "Changes the Discord application the Rich Presence connects to, which controls the app name and art assets.",
+        code: { lang: "lua", source: `changeDiscordClientID('1482658467125661818')` },
+      }),
     ],
   },
 

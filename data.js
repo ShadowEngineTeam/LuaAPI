@@ -19,6 +19,7 @@ const NAV = [
       { id: "se-tween", label: "Tween Functions" },
       { id: "se-reflection", label: "Reflection API" },
       { id: "se-sound", label: "Sound Functions" },
+      { id: "se-video", label: "Video Functions" },
       { id: "se-camera", label: "Camera Functions" },
       { id: "se-text", label: "Text Functions" },
       { id: "se-input", label: "Input Functions" },
@@ -164,6 +165,7 @@ end`,
     <tr><td>onTweenCompleted(tag)</td><td>String</td><td>Fires when a tween finishes.</td></tr>
     <tr><td>onTimerCompleted(tag, loops, left)</td><td>String, Int, Int</td><td>Fires when a timer completes.</td></tr>
     <tr><td>onSoundFinished(tag)</td><td>String</td><td>Fires when a tagged sound finishes.</td></tr>
+    <tr><td>onVideoFinished(tag)</td><td>String</td><td>Fires when a tagged video finishes playback.</td></tr>
     <tr><td>onEvent(name, v1, v2)</td><td>String, String, String</td><td>Fires on chart events.</td></tr>
     <tr><td>onCountdownStarted()</td><td>—</td><td>Fires when countdown begins.</td></tr>
     <tr><td>onCountdownEnded()</td><td>—</td><td>Fires when countdown ends.</td></tr>
@@ -211,6 +213,7 @@ end`,
     <tr><td>onTweenCompleted(tag)</td><td>String</td><td>Fires when a tween finishes.</td></tr>
     <tr><td>onTimerCompleted(tag, loops, left)</td><td>String, Int, Int</td><td>Fires when a timer completes.</td></tr>
     <tr><td>onSoundFinished(tag)</td><td>String</td><td>Fires when a tagged sound finishes.</td></tr>
+    <tr><td>onVideoFinished(tag)</td><td>String</td><td>Fires when a tagged video finishes playback.</td></tr>
     <tr><td>onEvent(name, v1, v2)</td><td>String, String, String</td><td>Fires on chart events.</td></tr>
     <tr><td>onCountdownStarted()</td><td>—</td><td>Fires when countdown begins.</td></tr>
     <tr><td>onCountdownEnded()</td><td>—</td><td>Fires when countdown ends.</td></tr>
@@ -3394,6 +3397,133 @@ addTouchPadCamera()` },
         returns: "Void",
         description: "Shows an Android toast notification.",
         code: { lang: "lua", source: `showToast('Saved!', 1)` },
+      }),
+    ],
+  },
+
+  /* ---------------- SE: Video Functions ---------------- */
+  "se-video": {
+    title: "Video Functions",
+    category: "API Reference",
+    subtitle: "Play, pause, and control video sprites from Lua. Each video is identified by a string <code>tag</code> and fires <code>onVideoFinished(tag)</code> when playback ends.",
+    sections: [
+      {
+        id: "playback",
+        title: "Playback",
+        kind: "prose",
+        body: "Start, stop, and control video playback.",
+      },
+      API({
+        id: "playLuaVideoSprite",
+        signature: "playLuaVideoSprite(tag, path, ?x, ?y, ?front)",
+        params: [["tag","String","Unique video identifier"],["path","String","Video file path under <code>videos/</code> (no extension)"],["x","Float","X position","default 0"],["y","Float","Y position","default 0"],["front","Bool","If true, renders on top of all sprites","default false"]],
+        returns: "Void",
+        description: "Plays a video. Re-using a tag removes the previous video first. Fires <code>onVideoFinished(tag)</code> when the video ends.",
+        code: { lang: "lua", source: `playLuaVideoSprite('intro', 'cutscenes/intro', 0, 0, true)` },
+      }),
+      API({
+        id: "pauseLuaVideo",
+        signature: "pauseLuaVideo(tag)",
+        params: [["tag","String","Tag of the video to pause"]],
+        returns: "Void",
+        description: "Pauses a playing video. Does nothing if the video doesn't exist.",
+        code: { lang: "lua", source: `pauseLuaVideo('intro')` },
+      }),
+      API({
+        id: "resumeLuaVideo",
+        signature: "resumeLuaVideo(tag)",
+        params: [["tag","String","Tag of the video to resume"]],
+        returns: "Void",
+        description: "Resumes a paused video. Does nothing if the video doesn't exist.",
+        code: { lang: "lua", source: `resumeLuaVideo('intro')` },
+      }),
+      API({
+        id: "removeLuaVideo",
+        signature: "removeLuaVideo(tag)",
+        params: [["tag","String","Tag of the video to remove"]],
+        returns: "Void",
+        description: "Removes a video from the display and destroys it.",
+        code: { lang: "lua", source: `removeLuaVideo('intro')` },
+      }),
+      API({
+        id: "forceRemoveLuaVideo",
+        signature: "forceRemoveLuaVideo(tag)",
+        params: [["tag","String","Tag of the video to forcibly remove"]],
+        returns: "Void",
+        description: "Immediately removes a video from the display and destroys it, bypassing any safety delays.",
+        code: { lang: "lua", source: `forceRemoveLuaVideo('intro')` },
+      }),
+      {
+        id: "queries",
+        title: "Queries",
+        kind: "prose",
+        body: "Check existence and playback state.",
+      },
+      API({
+        id: "luaVideoExists",
+        signature: "luaVideoExists(tag)",
+        params: [["tag","String","Tag to check"]],
+        returns: "Bool",
+        description: "Returns <code>true</code> if a video with this tag currently exists.",
+        code: { lang: "lua", source: `if luaVideoExists('intro') then
+    removeLuaVideo('intro')
+end` },
+      }),
+      API({
+        id: "isLuaVideoPlaying",
+        signature: "isLuaVideoPlaying(tag)",
+        params: [["tag","String","Tag to check"]],
+        returns: "Bool",
+        description: "Returns <code>true</code> if the video is currently playing.",
+        code: { lang: "lua", source: `if isLuaVideoPlaying('intro') then
+    pauseLuaVideo('intro')
+end` },
+      }),
+      {
+        id: "volume",
+        title: "Volume, time & rate",
+        kind: "prose",
+        body: "Read and write a video's volume, playback position, and playback speed.",
+      },
+      API({
+        id: "setLuaVideoVolume",
+        signature: "setLuaVideoVolume(tag, volume)",
+        params: [["tag","String","Tag of the video"],["volume","Float","Volume 0–1"]],
+        returns: "Void",
+        description: "Sets the volume of a video.",
+        code: { lang: "lua", source: `setLuaVideoVolume('intro', 0.5)` },
+      }),
+      API({
+        id: "getLuaVideoDuration",
+        signature: "getLuaVideoDuration(tag)",
+        params: [["tag","String","Tag of the video"]],
+        returns: "Float — duration in seconds (0 if not found)",
+        description: "Returns the total duration of a video in seconds.",
+        code: { lang: "lua", source: `local dur = getLuaVideoDuration('intro')` },
+      }),
+      API({
+        id: "getLuaVideoTime",
+        signature: "getLuaVideoTime(tag)",
+        params: [["tag","String","Tag of the video"]],
+        returns: "Float — current position in seconds (0 if not found)",
+        description: "Returns the current playback position of a video in seconds.",
+        code: { lang: "lua", source: `local t = getLuaVideoTime('intro')` },
+      }),
+      API({
+        id: "setLuaVideoRate",
+        signature: "setLuaVideoRate(tag, rate)",
+        params: [["tag","String","Tag of the video"],["rate","Float","Playback speed multiplier (1 = normal)"]],
+        returns: "Void",
+        description: "Sets the playback speed of a video.",
+        code: { lang: "lua", source: `setLuaVideoRate('intro', 1.5)` },
+      }),
+      API({
+        id: "getLuaVideoRate",
+        signature: "getLuaVideoRate(tag)",
+        params: [["tag","String","Tag of the video"]],
+        returns: "Float — playback speed multiplier (1.0 if not found)",
+        description: "Returns the current playback speed multiplier of a video.",
+        code: { lang: "lua", source: `local r = getLuaVideoRate('intro')` },
       }),
     ],
   },
